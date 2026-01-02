@@ -1,3 +1,21 @@
+export type UserRole = "ADMIN" | "SUPPLIER"
+
+export interface User {
+  id: string
+  name: string
+  role: UserRole
+  email?: string
+  phone?: string
+  password?: string
+  status?: "Active" | "Pending Activation" | "Inactive"
+  companyDetails?: {
+    address: string
+    category?: "Pre-Machining" | "Child-Part"
+    operationType?: "Pre Machining" | "Semi Finishing" | "Full Finishing"
+    approvedParts?: string[]
+  }
+}
+
 // Helper to get users from memory + local storage
 function getUsers() {
     const combinedUsers = { ...MOCK_USERS }
