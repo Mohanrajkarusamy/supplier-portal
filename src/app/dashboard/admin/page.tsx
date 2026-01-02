@@ -28,10 +28,13 @@ export default function AdminDashboardPage() {
             const suppliersMap = getAllUsers()
             const users = Object.values(suppliersMap).filter((u: any) => u.role === "SUPPLIER" || !u.role)
 
-            // Try to fetch other data, but don't fail if API is down (demo mode)
+            // Mock Data for Issues/Docs (Since API/DB is not connected in this demo)
+            // In a real app we'd fetch these or use localStorage like users
             let issues: any[] = []
             let documents: any[] = []
 
+            // Commented out to prevent hanging on Vercel (DB timeout)
+            /*
             try {
                 const issuesRes = await fetch('/api/issues')
                 if (issuesRes.ok) issues = await issuesRes.json()
@@ -41,6 +44,7 @@ export default function AdminDashboardPage() {
                  const docsRes = await fetch('/api/documents')
                  if (docsRes.ok) documents = await docsRes.json()
             } catch (e) { console.warn("Docs API failed, using defaults") }
+            */
 
             setStats({
                 totalSuppliers: users.length,
