@@ -57,46 +57,7 @@ export default function LoginPage() {
     }
   }
 
-  // ... (existing code to handleVerifyOTP)
 
-  return (
-    // ...
-          {step === "OTP" && (
-            <form onSubmit={handleVerifyOTP} className="space-y-4">
-               <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                     <Label htmlFor="otp" className="text-slate-200">Enter OTP</Label>
-                      <Button 
-                        variant="link" 
-                        className="h-auto p-0 text-xs text-primary"
-                        onClick={() => setStep("PASSWORD")}
-                        type="button"
-                    >
-                        Back
-                    </Button>
-                </div>
-                {maskedEmail && <p className="text-xs text-slate-400">Sent to {maskedEmail}</p>}
-                <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
-                    <Input
-                    id="otp"
-                    type="text"
-                    placeholder="1234"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    className="pl-9 bg-slate-900/50 border-slate-700 text-slate-100 focus:ring-primary placeholder:text-slate-500 tracking-widest"
-                    required
-                    maxLength={6}
-                    />
-                </div>
-              </div>
-              {error && <p className="text-sm text-red-400">{error}</p>}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Verify & Login
-              </Button>
-            </form>
-          )}
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -202,19 +163,32 @@ export default function LoginPage() {
 
           {step === "OTP" && (
             <form onSubmit={handleVerifyOTP} className="space-y-4">
-              <div className="space-y-2">
+               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <Label htmlFor="otp" className="text-slate-200">Enter OTP</Label>
+                     <Label htmlFor="otp" className="text-slate-200">Enter OTP</Label>
+                      <Button 
+                        variant="link" 
+                        className="h-auto p-0 text-xs text-primary"
+                        onClick={() => setStep("PASSWORD")}
+                        type="button"
+                    >
+                        Back
+                    </Button>
                 </div>
-                <Input
-                  id="otp"
-                  placeholder="Enter 4-digit OTP (Try 1234)"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="bg-slate-900/50 border-slate-700 text-slate-100 focus:ring-primary placeholder:text-slate-500 tracking-widest text-center text-lg"
-                  maxLength={4}
-                  required
-                />
+                {maskedEmail && <p className="text-xs text-slate-400">Sent to {maskedEmail}</p>}
+                <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                    <Input
+                    id="otp"
+                    type="text"
+                    placeholder="1234"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="pl-9 bg-slate-900/50 border-slate-700 text-slate-100 focus:ring-primary placeholder:text-slate-500 tracking-widest"
+                    required
+                    maxLength={6}
+                    />
+                </div>
               </div>
               {error && <p className="text-sm text-red-400">{error}</p>}
               <Button type="submit" className="w-full" disabled={loading}>
