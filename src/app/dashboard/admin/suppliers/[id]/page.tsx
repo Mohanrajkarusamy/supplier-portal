@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Mail, Phone, MapPin, FileText, AlertTriangle, BarChart3, Clock, CheckCircle, XCircle } from "lucide-react"
-import { Issue } from "@/lib/issues"
+// import { Issue } from "@/lib/issues" - Removed as module deleted
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
