@@ -9,8 +9,11 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { SYSTEM_SETTINGS, updateSettings } from "@/lib/settings"
 
+import { useLocalStorage } from "@/hooks/use-local-storage"
+
 export default function AdminSettingsPage() {
   const [ppmTargets, setPpmTargets] = useState(SYSTEM_SETTINGS.ppmTargets)
+  const [adminEmail, setAdminEmail] = useLocalStorage("admin_email", "admin@company.com")
 
   const handleSaveSettings = () => {
       updateSettings({ ppmTargets })
@@ -95,6 +98,15 @@ export default function AdminSettingsPage() {
                   <CardDescription>Global settings for the Supplier Portal.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                      <Label>Admin Notification Email</Label>
+                      <Input 
+                          value={adminEmail} 
+                          onChange={(e) => setAdminEmail(e.target.value)} 
+                          placeholder="e.g. procurement@company.com"
+                      />
+                      <p className="text-xs text-muted-foreground">This email will show as the sender for supplier credentials.</p>
+                  </div>
                   <div className="space-y-2">
                       <Label>Default Currency</Label>
                       <Input value="INR (₹)" disabled readOnly className="max-w-xs bg-muted" />

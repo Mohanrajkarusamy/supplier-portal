@@ -60,6 +60,8 @@ export default function SuppliersPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [originalSupplierId, setOriginalSupplierId] = useState("")
 
+  const [adminEmail] = useLocalStorage("admin_email", "admin@company.com")
+  
   const handleAddSupplier = () => {
     if (isEditing) {
         handleUpdateSupplier()
@@ -91,7 +93,7 @@ export default function SuppliersPage() {
     
     setOpen(false)
     resetForm()
-    alert(`Supplier Created: ${name} (ID: ${supplierId})\n\nSimulating Email to ${email}:\n"Subject: Welcome to Supplier Portal\nPlease register using your User ID: ${supplierId} at the activation page."`)
+    alert(`Supplier Created: ${name} (ID: ${supplierId})\n\nSimulating Email from ${adminEmail} to ${email}:\n"Subject: Welcome to Supplier Portal\nPlease register using your User ID: ${supplierId} at the activation page."`)
   }
 
   const handleUpdateSupplier = () => {

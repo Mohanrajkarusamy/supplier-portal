@@ -1,19 +1,18 @@
-export type UserRole = "ADMIN" | "SUPPLIER"
-
-export interface User {
-  id: string
-  name: string
-  role: UserRole
-  email?: string
-  phone?: string
-  password?: string
-  status?: "Active" | "Pending Activation" | "Inactive"
-  companyDetails?: {
-    address: string
-    category?: "Pre-Machining" | "Child-Part"
-    operationType?: "Pre Machining" | "Semi Finishing" | "Full Finishing"
-    approvedParts?: string[]
-  }
+// Helper to get users from memory + local storage
+function getUsers() {
+    const combinedUsers = { ...MOCK_USERS }
+    if (typeof window !== "undefined") {
+        try {
+            const stored = localStorage.getItem("demo_suppliers")
+            if (stored) {
+                const storedUsers = JSON.parse(stored)
+                storedUsers.forEach((u: User) => {
+                    if (u.id) combinedUsers[u.id] = u
+                })
+            }
+        } catch (e) { console.error("Error reading local storage users", e) }
+    }
+    return combinedUsers
 }
 
 // Mock Database of users - Kept for reference or seed if needed, but app uses API
@@ -52,16 +51,17 @@ export async function registerUser(userData: Partial<User>): Promise<{ success: 
     return { success: true, message: "Use Admin Panel to add suppliers", userId: "N/A" }
 }
 
+
 export async function checkUser(userId: string): Promise<{ exists: boolean; name?: string; role?: "ADMIN" | "SUPPLIER" }> {
-  // Check against MOCK_USERS directly for demo stability
-  const user = MOCK_USERS[userId]
+  const users = getUsers()
+  const user = users[userId]
   return { exists: !!user, name: user?.name, role: user?.role } 
 }
 
 export async function verifyPassword(userId: string, password: string): Promise<{ success: boolean; message: string; user?: User; token?: string }> {
-  // Use MOCK_USERS for verification to avoid DB dependency in demo
   try {
-    const user = MOCK_USERS[userId]
+    const users = getUsers()
+    const user = users[userId]
     if (user && user.password === password) {
         return { 
             success: true, 
@@ -77,26 +77,40 @@ export async function verifyPassword(userId: string, password: string): Promise<
 }
 
 export async function sendOTP(userId: string): Promise<{ success: boolean; message: string }> {
-  // Mock OTP for now, no API needed unless we want to log it
   return { success: true, message: "OTP sent to registered email/phone" }
 }
 
 export async function verifyOTP(userId: string, otp: string): Promise<{ success: boolean; token?: string; user?: User; message: string }> {
    if (otp === "1234") {
-      // In a real app we would exchange OTP for token here or validate session.
-      // For now, return success.
-      // Retrieve user again to return it
-      // In a real flow, verifyOTP might assume userId is valid from previous steps
      return { success: true, token: "mock-jwt-token-123", message: "Login successful" }
    }
    return { success: false, message: "Invalid OTP" }
 }
 
 export async function activateUser(userId: string, email: string, password: string): Promise<{ success: boolean; message: string; token?: string; user?: User }> {
-    // Mock activation
-    const user = MOCK_USERS[userId]
+    const users = getUsers()
+    const user = users[userId]
+    
     if (user) {
+        // In a real app we'd update DB. Here we need to update LocalStorage if it's a stored user
         user.password = password
+        user.status = "Active" // Auto activate
+        
+        if (typeof window !== "undefined") {
+            try {
+                // Update the persisted list
+                const stored = localStorage.getItem("demo_suppliers")
+                if (stored) {
+                    const storedUsers: User[] = JSON.parse(stored)
+                    const idx = storedUsers.findIndex(u => u.id === userId)
+                    if (idx !== -1) {
+                        storedUsers[idx] = user
+                        localStorage.setItem("demo_suppliers", JSON.stringify(storedUsers))
+                    }
+                }
+            } catch (e) { console.error("Error updating activated user", e)}
+        }
+
         return { success: true, message: "Activated", user }
     }
     return { success: false, message: "User not found" }
