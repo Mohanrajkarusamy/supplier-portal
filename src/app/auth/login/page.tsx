@@ -14,8 +14,31 @@ import Link from "next/link"
 export default function LoginPage() {
   const router = useRouter()
   const [maskedEmail, setMaskedEmail] = useState("")
+  const [step, setStep] = useState<"ID" | "PASSWORD" | "OTP">("ID")
+  const [userId, setUserId] = useState("")
+  const [password, setPassword] = useState("")
+  const [otp, setOtp] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
-  // ... (existing code)
+  const handleCheckUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError("")
+    
+    try {
+      const res = await checkUser(userId)
+      if (res.exists) {
+        setStep("PASSWORD")
+      } else {
+        setError("User ID not found. Please register first.")
+      }
+    } catch (err) {
+      setError("Failed to check user.")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleVerifyPassword = async (e: React.FormEvent) => {
     e.preventDefault()
