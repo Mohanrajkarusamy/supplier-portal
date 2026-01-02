@@ -18,7 +18,8 @@ import { MOCK_USERS } from "@/lib/auth"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 
 export default function SuppliersPage() {
-  // Initialize from global mock data
+  // Initialize from global mock data or local storage if available
+  // We want to persist added suppliers in local storage for the demo session
   const initialSuppliers = Object.values(MOCK_USERS)
       .filter(u => u.role === "SUPPLIER")
       .map(u => ({
@@ -31,26 +32,12 @@ export default function SuppliersPage() {
           approvedParts: u.companyDetails?.approvedParts || []
       }))
 
-  // const [suppliers, setSuppliers] = useLocalStorage<any[]>("users", initialSuppliers) 
-  // Refactored to use API
+  const [suppliers, setSuppliers] = useLocalStorage<any[]>("demo_suppliers", initialSuppliers) 
   
-  const [suppliers, setSuppliers] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
-  const fetchSuppliers = async () => {
-    try {
-        const res = await fetch('/api/suppliers')
-        const data = await res.json()
-        if (Array.isArray(data)) {
-            setSuppliers(data)
-        }
-    } catch (e) { console.error("Failed to fetch suppliers") }
-    setLoading(false)
-  }
-
-  useEffect(() => {
-      fetchSuppliers()
-  }, [])
+  // No fetch needed as we rely on useLocalStorage sync
+  // const fetchSuppliers = ... 
 
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
@@ -73,19 +60,18 @@ export default function SuppliersPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [originalSupplierId, setOriginalSupplierId] = useState("")
 
-  const handleAddSupplier = async () => {
+  const handleAddSupplier = () => {
     if (isEditing) {
         handleUpdateSupplier()
         return
     }
 
-    // ID Duplicate check is now better handled by backend, but we can keep frontend check if list loaded
     if (suppliers.some(s => s.id === supplierId)) {
         alert("Supplier ID already exists! Please use a unique ID.")
         return
     }
 
-    const newSupplierDisplay = {
+    const newSupplier = {
       id: supplierId,
       name,
       category,
@@ -93,58 +79,43 @@ export default function SuppliersPage() {
       email,
       phone,
       status: "Pending Activation",
-      password: "", 
       approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean),
-      companyDetails: { // Match Schema Structure
+      companyDetails: { 
           category,
           approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
       }
     }
 
-    const res = await fetch('/api/suppliers', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(newSupplierDisplay)
-    })
-
-    if (res.ok) {
-        setOpen(false)
-        resetForm()
-        fetchSuppliers() // Refresh list
-        alert(`Supplier Created: ${name} (ID: ${supplierId})\n\nSimulating Email to ${email}:\n"Subject: Welcome to Supplier Portal\nPlease register using your User ID: ${supplierId} at the activation page."`)
-    } else {
-        alert("Failed to create supplier")
-    }
+    // Direct state update instead of API call
+    setSuppliers([...suppliers, newSupplier])
+    
+    setOpen(false)
+    resetForm()
+    alert(`Supplier Created: ${name} (ID: ${supplierId})\n\nSimulating Email to ${email}:\n"Subject: Welcome to Supplier Portal\nPlease register using your User ID: ${supplierId} at the activation page."`)
   }
 
-  const handleUpdateSupplier = async () => {
-      const updateData = {
-          id: supplierId,
-          name,
-          category,
-          role: "SUPPLIER",
-          email,
-          phone,
-          approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean),
-          companyDetails: {
-            category,
-            approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
+  const handleUpdateSupplier = () => {
+      const updatedList = suppliers.map(s => {
+          if (s.id === supplierId) {
+             return {
+                 ...s,
+                 name,
+                 category,
+                 email,
+                 phone,
+                 approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean),
+                 companyDetails: {
+                    category,
+                    approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
+                 }
+             }
           }
-      }
-
-      const res = await fetch('/api/suppliers', {
-        method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(updateData)
+          return s
       })
 
-      if (res.ok) {
-        setOpen(false)
-        resetForm()
-        fetchSuppliers()
-      } else {
-          alert("Update failed")
-      }
+      setSuppliers(updatedList)
+      setOpen(false)
+      resetForm()
   }
 
   const handleEditClick = (supplier: any) => {
@@ -169,18 +140,15 @@ export default function SuppliersPage() {
       setDeleteDialogOpen(true)
   }
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
       if (!supplierToDelete) return
       
-      const res = await fetch(`/api/suppliers?id=${supplierToDelete}`, { method: 'DELETE' })
-      if (res.ok) {
-          console.log(`Supplier ${supplierToDelete} deleted. Reason: ${deleteReason}`)
-          setDeleteDialogOpen(false)
-          setSupplierToDelete(null)
-          fetchSuppliers()
-      } else {
-          alert("Delete failed")
-      }
+      const updatedList = suppliers.filter(s => s.id !== supplierToDelete)
+      setSuppliers(updatedList)
+      
+      console.log(`Supplier ${supplierToDelete} deleted. Reason: ${deleteReason}`)
+      setDeleteDialogOpen(false)
+      setSupplierToDelete(null)
   }
 
   const resetForm = () => {
