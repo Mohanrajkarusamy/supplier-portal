@@ -96,8 +96,15 @@ export async function verifyPassword(userId: string, password: string): Promise<
   }
 }
 
-export async function sendOTP(userId: string): Promise<{ success: boolean; message: string }> {
-  return { success: true, message: "OTP sent to registered email/phone" }
+export async function sendOTP(userId: string): Promise<{ success: boolean; message: string; email?: string }> {
+  const users = getAllUsers()
+  const user = users[userId]
+  
+  if (!user || !user.email) {
+      return { success: false, message: "No email found for this user." }
+  }
+
+  return { success: true, message: "OTP sent to registered email", email: user.email }
 }
 
 export async function verifyOTP(userId: string, otp: string): Promise<{ success: boolean; token?: string; user?: User; message: string }> {

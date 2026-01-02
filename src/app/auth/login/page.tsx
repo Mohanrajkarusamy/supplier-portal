@@ -13,31 +13,9 @@ import Link from "next/link"
 
 export default function LoginPage() {
   const router = useRouter()
-  const [step, setStep] = useState<"ID" | "PASSWORD" | "OTP">("ID")
-  const [userId, setUserId] = useState("")
-  const [password, setPassword] = useState("")
-  const [otp, setOtp] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [maskedEmail, setMaskedEmail] = useState("")
 
-  const handleCheckUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
-    
-    try {
-      const res = await checkUser(userId)
-      if (res.exists) {
-        setStep("PASSWORD")
-      } else {
-        setError("User ID not found. Please register first.")
-      }
-    } catch (err) {
-      setError("Failed to check user.")
-    } finally {
-      setLoading(false)
-    }
-  }
+  // ... (existing code)
 
   const handleVerifyPassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,6 +36,14 @@ export default function LoginPage() {
              const otpRes = await sendOTP(userId)
              if (otpRes.success) {
                 setStep("OTP")
+                // Simulate Email
+                alert(`Simulating Email to ${otpRes.email}:\n\nSubject: Supplier Portal Login OTP\n\nYour One-Time Password is: 1234`)
+                
+                // Mask email for UI
+                if (otpRes.email) {
+                    const [user, domain] = otpRes.email.split("@")
+                    setMaskedEmail(`${user.slice(0, 3)}***@${domain}`)
+                }
              } else {
                 setError(otpRes.message)
              }
@@ -70,6 +56,47 @@ export default function LoginPage() {
         setLoading(false)
     }
   }
+
+  // ... (existing code to handleVerifyOTP)
+
+  return (
+    // ...
+          {step === "OTP" && (
+            <form onSubmit={handleVerifyOTP} className="space-y-4">
+               <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                     <Label htmlFor="otp" className="text-slate-200">Enter OTP</Label>
+                      <Button 
+                        variant="link" 
+                        className="h-auto p-0 text-xs text-primary"
+                        onClick={() => setStep("PASSWORD")}
+                        type="button"
+                    >
+                        Back
+                    </Button>
+                </div>
+                {maskedEmail && <p className="text-xs text-slate-400">Sent to {maskedEmail}</p>}
+                <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                    <Input
+                    id="otp"
+                    type="text"
+                    placeholder="1234"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="pl-9 bg-slate-900/50 border-slate-700 text-slate-100 focus:ring-primary placeholder:text-slate-500 tracking-widest"
+                    required
+                    maxLength={6}
+                    />
+                </div>
+              </div>
+              {error && <p className="text-sm text-red-400">{error}</p>}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Verify & Login
+              </Button>
+            </form>
+          )}
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault()
