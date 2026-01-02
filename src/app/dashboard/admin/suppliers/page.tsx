@@ -61,6 +61,26 @@ export default function SuppliersPage() {
   const [originalSupplierId, setOriginalSupplierId] = useState("")
 
   const [adminEmail] = useLocalStorage("admin_email", "admin@company.com")
+
+  // Email Feature State
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [emailSubject, setEmailSubject] = useState("")
+  const [emailMessage, setEmailMessage] = useState("")
+  const [selectedSupplierEmail, setSelectedSupplierEmail] = useState("")
+  const [selectedSupplierName, setSelectedSupplierName] = useState("")
+
+  const handleOpenEmailDialog = (supplier: any) => {
+      setSelectedSupplierEmail(supplier.email)
+      setSelectedSupplierName(supplier.name)
+      setEmailSubject("Regarding: ")
+      setEmailMessage("")
+      setEmailDialogOpen(true)
+  }
+
+  const handleSendEmail = () => {
+      alert(`Simulating Email Sent!\n\nFrom: ${adminEmail}\nTo: ${selectedSupplierName} <${selectedSupplierEmail}>\nSubject: ${emailSubject}\n\nMessage:\n${emailMessage}`)
+      setEmailDialogOpen(false)
+  }
   
   const handleAddSupplier = () => {
     if (isEditing) {
@@ -339,7 +359,7 @@ export default function SuppliersPage() {
                   <CardDescription>Suppliers handling raw casting and pre-machining operations.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <SupplierTable data={preMachiningSuppliers} onDeleteClick={handleDeleteClick} onEditClick={handleEditClick} />
+                   <SupplierTable data={preMachiningSuppliers} onDeleteClick={handleDeleteClick} onEditClick={handleEditClick} onEmailClick={handleOpenEmailDialog} />
                 </CardContent>
               </Card>
          </TabsContent>
@@ -351,7 +371,7 @@ export default function SuppliersPage() {
                   <CardDescription>Suppliers providing finished child parts like gears and shafts.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <SupplierTable data={childPartSuppliers} onDeleteClick={handleDeleteClick} onEditClick={handleEditClick} />
+                   <SupplierTable data={childPartSuppliers} onDeleteClick={handleDeleteClick} onEditClick={handleEditClick} onEmailClick={handleOpenEmailDialog} />
                 </CardContent>
               </Card>
          </TabsContent>
@@ -385,12 +405,51 @@ export default function SuppliersPage() {
               </DialogFooter>
           </DialogContent>
       </Dialog>
+
+      {/* Email Dialog */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                  <DialogTitle>Send Email to Supplier</DialogTitle>
+                  <DialogDescription>
+                      Compose a message to <b>{selectedSupplierName}</b>. This will be sent to <i>{selectedSupplierEmail}</i>.
+                  </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                       <Label htmlFor="subject">Subject</Label>
+                       <Input 
+                          id="subject" 
+                          value={emailSubject}
+                          onChange={(e) => setEmailSubject(e.target.value)}
+                          placeholder="Email Subject"
+                       />
+                  </div>
+                  <div className="grid gap-2">
+                       <Label htmlFor="message">Message</Label>
+                       <Textarea 
+                          id="message" 
+                          value={emailMessage}
+                          onChange={(e) => setEmailMessage(e.target.value)}
+                          placeholder="Type your message here..."
+                          rows={5}
+                       />
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleSendEmail} disabled={!emailSubject || !emailMessage}>
+                      <Mail className="mr-2 h-4 w-4" /> Send Email
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 // Helper Component defined outside to prevent re-renders
-function SupplierTable({ data, onDeleteClick, onEditClick }: { data: any[], onDeleteClick: (id: string) => void, onEditClick: (supplier: any) => void }) {
+function SupplierTable({ data, onDeleteClick, onEditClick, onEmailClick }: { data: any[], onDeleteClick: (id: string) => void, onEditClick: (supplier: any) => void, onEmailClick: (supplier: any) => void }) {
   return (
     <Table>
       <TableHeader>
@@ -455,6 +514,9 @@ function SupplierTable({ data, onDeleteClick, onEditClick }: { data: any[], onDe
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onClick={() => onEmailClick(supplier)}>
+                              <Mail className="mr-2 h-4 w-4" /> Send Email
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onEditClick(supplier)}>
                               Edit Details
                           </DropdownMenuItem>
