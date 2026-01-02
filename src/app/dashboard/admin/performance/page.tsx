@@ -9,7 +9,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MOCK_USERS } from "@/lib/auth"
 import { MOCK_DAILY_LOGS, DailyLog } from "@/lib/performance"
-import { MOCK_ISSUES, Issue } from "@/lib/issues"
+// Define interface locally to match usage
+interface Issue {
+  id: string;
+  supplier: string;
+  defect: string;
+  partName: string;
+  partNumber: string;
+  quantity: number;
+  raisedDate: string;
+  status: string;
+  attachments: string[];
+}
+
+const MOCK_ISSUES: Issue[] = [];
 import { Textarea } from "@/components/ui/textarea"
 
 export default function AdminPerformancePage() {
