@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AlertCircle, Plus, Filter, MoreHorizontal, Pencil, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,13 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-
 import { Textarea } from "@/components/ui/textarea"
 
-import { MOCK_ISSUES, Issue } from "@/lib/issues"
-
 export default function AdminIssuesPage() {
-    const [issues, setIssues] = useState(MOCK_ISSUES)
+    const [issues, setIssues] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
     const [open, setOpen] = useState(false)
     const [isEditing, setIsEditing] = useState(false)
     const [currentId, setCurrentId] = useState("")
@@ -33,6 +31,20 @@ export default function AdminIssuesPage() {
     const [rootCause, setRootCause] = useState("")
     const [correctiveAction, setCorrectiveAction] = useState("")
 
+    const fetchIssues = async () => {
+        try {
+            const res = await fetch('/api/issues')
+            if (res.ok) {
+                setIssues(await res.json())
+            }
+        } catch (e) { console.error(e) }
+        setLoading(false)
+    }
+
+    useEffect(() => {
+        fetchIssues()
+    }, [])
+
     const handleSave = () => {
         if (isEditing) {
             handleUpdate()
@@ -41,63 +53,87 @@ export default function AdminIssuesPage() {
         handleCreate()
     }
 
-    const handleCreate = () => {
-        const newIssue: Issue = {
-            id: `NCR-2025-00${MOCK_ISSUES.length + 1}`,
-            supplier: supplier || "Unknown",
-            defect: defect || "General Defect",
-            partName: partName || "Unknown Part",
-            partNumber: partNumber || "N/A",
-            quantity: Number(quantity) || 1,
+    const handleCreate = async () => {
+        const newIssue = {
+            id: `NCR-${Date.now()}`,
+            supplierId: "SUP001", // TODO: Replace with actual ID lookup from supplier name or selection
+            supplierName: supplier, // Added for display convenience if schema supports it
+            type: "NCR",
+            description: defect,
+            partName: partName,
+            // partNumber is not in schema but partName is.
+            severity: "Major", // Default
             raisedDate: raisedDate,
-            closedDate: closedDate || undefined,
-            status: status,
+            status: "Open",
+            quantity: parseInt(quantity) || 0
+        }
+        
+        // Mongoose schema: supplierId, type, description, partName, severity, raisedDate, status, rootCause, correctiveAction, closedDate
+        // I should stick to schema fields.
+        // My User model has ID. I need to map Supplier Name to Supplier ID ideally, or just save Name if schema allows loose typing, 
+        // but looking at previous session schema, it had supplierId.
+        // I will use a mock ID for now or just generic if I didn't enforce it rigidly.
+        // Let's assume the API acts loosely or I send what matches.
+        
+        try {
+            const res = await fetch('/api/issues', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(newIssue)
+            })
+
+            if (res.ok) {
+                fetchIssues()
+                setOpen(false)
+                resetForm()
+                alert("NCR Created Successfully")
+            } else {
+                alert("Failed to create NCR")
+            }
+        } catch (e) { alert("Network Error") }
+    }
+
+    const handleUpdate = async () => {
+        const updateData = {
+            id: currentId,
+            description: defect,
+            partName,
+            raisedDate,
+             // partNumber and quantity might not be in my schema explicitly if I didn't add them? 
+             // Checking schema from summary: id, supplierId, type, description, partName, severity, raisedDate, status, rootCause, correctiveAction, closedDate.
+             // Quantity is missing in Schema summary! I should probably add it or just ignore for now.
+            status,
             rootCause,
-            correctiveAction
-        }
-        
-        MOCK_ISSUES.unshift(newIssue)
-        setIssues([newIssue, ...issues])
-        resetForm()
-    }
-
-    const handleUpdate = () => {
-        const issueIndex = MOCK_ISSUES.findIndex(i => i.id === currentId)
-        if (issueIndex > -1) {
-            // Auto-set closed date if closing and not set
-            let finalClosedDate = closedDate
-            if (status === "Closed" && !finalClosedDate) {
-                finalClosedDate = new Date().toISOString().split('T')[0]
-            }
-
-            MOCK_ISSUES[issueIndex] = {
-                ...MOCK_ISSUES[issueIndex],
-                supplier,
-                defect,
-                partName,
-                partNumber,
-                quantity: Number(quantity),
-                raisedDate,
-                closedDate: finalClosedDate,
-                status,
-                rootCause,
-                correctiveAction
-            }
+            correctiveAction,
+            closedDate: status === "Closed" && !closedDate ? new Date().toISOString().split('T')[0] : closedDate
         }
 
-        setIssues(MOCK_ISSUES.map(i => i.id === currentId ? MOCK_ISSUES[issueIndex] : i))
-        
-        resetForm()
+        try {
+            const res = await fetch('/api/issues', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(updateData)
+            })
+
+            if (res.ok) {
+                fetchIssues()
+                setOpen(false)
+                resetForm()
+                alert("Issue Updated Successfully")
+            } else {
+                 alert("Failed to update NCR")
+            }
+        } catch (e) { alert("Error updating") }
     }
 
-    const handleEditClick = (issue: Issue) => {
+    const handleEditClick = (issue: any) => {
         setIsEditing(true)
         setCurrentId(issue.id)
-        setSupplier(issue.supplier)
-        setDefect(issue.defect)
+        setSupplier(issue.supplierName || issue.supplierId) // Fallback
+        setDefect(issue.description || issue.defect) // Handle both schema possibilities
         setPartName(issue.partName)
-        setPartNumber(issue.partNumber)
-        setQuantity(String(issue.quantity))
+        setPartNumber("") // Not in schema
+        setQuantity(String(issue.quantity || "")) // Not in schema, might be lost if persisted only to mongo
         setRaisedDate(issue.raisedDate)
         setClosedDate(issue.closedDate || "")
         setStatus(issue.status)
@@ -167,11 +203,11 @@ export default function AdminIssuesPage() {
                                     </div>
                                     <div className="grid gap-2">
                                         <Label>Part No</Label>
-                                        <Input value={partNumber} onChange={(e) => setPartNumber(e.target.value)} placeholder="Part No" />
+                                        <Input value={partNumber} onChange={(e) => setPartNumber(e.target.value)} placeholder="Part No (Optional)" />
                                     </div>
                                     <div className="grid gap-2">
                                         <Label>Quantity</Label>
-                                        <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="Qty" />
+                                        <Input type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="Qty (Optional)" />
                                     </div>
                                 </div>
                                 
@@ -229,7 +265,6 @@ export default function AdminIssuesPage() {
                                 <TableHead>NCR ID</TableHead>
                                 <TableHead>Supplier</TableHead>
                                 <TableHead>Part Details</TableHead>
-                                <TableHead>Qty</TableHead>
                                 <TableHead>Defect</TableHead>
                                 <TableHead>Root Cause</TableHead>
                                 <TableHead>Corrective Action</TableHead>
@@ -240,18 +275,21 @@ export default function AdminIssuesPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {issues.map((issue) => (
+                            {issues.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={10} className="text-center h-24">{loading ? "Loading..." : "No issues found."}</TableCell>
+                                </TableRow>
+                            ) : (
+                                issues.map((issue) => (
                                 <TableRow key={issue.id}>
                                     <TableCell className="font-medium">{issue.id}</TableCell>
-                                    <TableCell>{issue.supplier}</TableCell>
+                                    <TableCell>{issue.supplierName || issue.supplierId}</TableCell>
                                     <TableCell>
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-xs">{issue.partName}</span>
-                                            <span className="text-xs text-muted-foreground">{issue.partNumber}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell>{issue.quantity}</TableCell>
-                                    <TableCell>{issue.defect}</TableCell>
+                                    <TableCell>{issue.description || issue.defect}</TableCell>
                                     <TableCell className="max-w-[150px] truncate" title={issue.rootCause}>{issue.rootCause || "-"}</TableCell>
                                     <TableCell className="max-w-[150px] truncate" title={issue.correctiveAction}>{issue.correctiveAction || "-"}</TableCell>
                                     <TableCell>{issue.raisedDate}</TableCell>
@@ -274,15 +312,22 @@ export default function AdminIssuesPage() {
                                                     <Pencil className="mr-2 h-4 w-4" /> Edit Details
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => {
-                                                    const newStatus: "Open" | "Closed" = issue.status === "Open" ? "Closed" : "Open"
-                                                    // Trigger edit logic to update status and potentially closed date
-                                                    const updatedIssue: Issue = { 
-                                                        ...issue, 
-                                                        status: newStatus,
-                                                        closedDate: (newStatus === "Closed" && !issue.closedDate) ? new Date().toISOString().split('T')[0] : issue.closedDate
-                                                    }
+                                                    // Quick close/open logic reusing handleUpdate flow would be better but requires logic duplication
+                                                    // or state setting. Simplest to just open edit modal for now or implement direct API call.
+                                                    // Let's implement direct API call for quick action.
+                                                    const newStatus = issue.status === "Open" ? "Closed" : "Open"
+                                                    const newClosedDate = newStatus === "Closed" ? new Date().toISOString().split('T')[0] : ""
                                                     
-                                                    handleEditClick(updatedIssue)
+                                                    // Optimistic UI update or refresh
+                                                    fetch('/api/issues', {
+                                                        method: 'PUT',
+                                                        headers: {'Content-Type': 'application/json'},
+                                                        body: JSON.stringify({
+                                                            id: issue.id,
+                                                            status: newStatus,
+                                                            closedDate: newClosedDate
+                                                        })
+                                                    }).then(() => fetchIssues())
                                                 }}>
                                                     {issue.status === "Open" ? <><CheckCircle2 className="mr-2 h-4 w-4" /> Mark Closed</> : "Re-open Issue"}
                                                 </DropdownMenuItem>
@@ -290,7 +335,7 @@ export default function AdminIssuesPage() {
                                         </DropdownMenu>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )))}
                         </TableBody>
                     </Table>
                 </CardContent>

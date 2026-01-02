@@ -4,61 +4,88 @@ import { Users, Upload, AlertTriangle, FileUp, PlusCircle, CheckCircle2 } from "
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { MOCK_USERS } from "@/lib/auth"
-import { MOCK_DOCUMENTS } from "@/lib/documents"
-import { MOCK_ISSUES } from "@/lib/issues"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 
 export default function AdminDashboardPage() {
+  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
-      total: 0,
+      totalSuppliers: 0,
       preMachining: 0,
       childPart: 0,
       openIssues: 0,
-      pendingDocs: 0
+      pendingApprovals: 0
   })
-
-  const [activities, setActivities] = useState<{
-      supplierName: string
-      action: string
-      time: string
-      status: string
-      timestamp: number
-  }[]>([])
+  
+  const [recentActivities, setRecentActivities] = useState<any[]>([])
 
   useEffect(() => {
-      const suppliers = Object.values(MOCK_USERS).filter(u => u.role === "SUPPLIER")
-      const openIssues = MOCK_ISSUES.filter(i => i.status === "Open").length
-      const pendingDocs = MOCK_DOCUMENTS.filter(d => d.status === "Pending").length
+    async function fetchData() {
+        try {
+            const [usersRes, issuesRes, docsRes] = await Promise.all([
+                fetch('/api/suppliers'),
+                fetch('/api/issues'),
+                fetch('/api/documents')
+            ])
 
-      setStats({
-          total: suppliers.length,
-          preMachining: suppliers.filter(u => u.companyDetails?.category === "Pre-Machining").length,
-          childPart: suppliers.filter(u => u.companyDetails?.category === "Child-Part").length,
-          openIssues,
-          pendingDocs
-      })
+            const users = await usersRes.json()
+            const issues = await issuesRes.json()
+            const documents = await docsRes.json()
 
-      // Aggregate Activities
-      const docs = MOCK_DOCUMENTS.map(d => ({
-          supplierName: MOCK_USERS[d.supplierId]?.name || "Unknown Supplier",
-          action: `Uploaded ${d.type}`,
-          time: new Date(d.date).toLocaleDateString(),
-          status: d.status,
-          timestamp: new Date(d.date).getTime()
-      }))
+            if (Array.isArray(users) && Array.isArray(issues) && Array.isArray(documents)) {
+                // Ensure we count correctly (handling legacy data with missing role)
+                const suppliers = users.filter((u: any) => u.role === "SUPPLIER" || !u.role)
+                
+                setStats({
+                    totalSuppliers: suppliers.length,
+                    preMachining: suppliers.filter((s: any) => s.companyDetails?.category === "Pre-Machining" || s.category === "Pre-Machining").length,
+                    childPart: suppliers.filter((s: any) => s.companyDetails?.category === "Child-Part" || s.category === "Child-Part").length,
+                    openIssues: issues.filter((i: any) => i.status === "Open").length,
+                    pendingApprovals: documents.filter((d: any) => d.status === "Pending").length
+                })
 
-      const issues = MOCK_ISSUES.map(i => ({
-          supplierName: i.supplier,
-          action: `New Quality Issue: ${i.defect}`,
-          time: new Date(i.raisedDate).toLocaleDateString(),
-          status: i.status,
-          timestamp: new Date(i.raisedDate).getTime()
-      }))
+                // Construct Activities
+                const issueActivities = issues.slice(0, 5).map((i: any) => ({
+                    id: i.id,
+                    type: "issue",
+                    action: `Quality Issue: ${i.type}`,
+                    desc: i.description,
+                    status: i.status,
+                    date: i.raisedDate,
+                    supplierId: i.supplierId
+                }))
+                
+                const docActivities = documents.slice(0, 5).map((d: any) => ({
+                    id: d.id,
+                    type: "document",
+                    action: `Uploaded ${d.type}`,
+                    desc: d.type,
+                    status: d.status,
+                    date: d.date,
+                    supplierId: d.supplierId
+                }))
 
-      const allActivities = [...docs, ...issues].sort((a, b) => b.timestamp - a.timestamp).slice(0, 10)
-      setActivities(allActivities)
+                // Merge and sort
+                const combined = [...docActivities, ...issueActivities]
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .slice(0, 10)
 
+                // Helper to get name
+                const activitiesWithNames = combined.map(act => {
+                    const supp = users.find((u: any) => u.id === act.supplierId)
+                    return { 
+                        ...act, 
+                        supplierName: supp ? supp.name : act.supplierId,
+                        time: new Date(act.date).toLocaleDateString()
+                    }
+                })
+
+                setRecentActivities(activitiesWithNames)
+            }
+        } catch (e) { console.error("Dashboard Fetch Error", e) }
+        setLoading(false)
+    }
+    fetchData()
   }, [])
 
   return (
@@ -79,7 +106,7 @@ export default function AdminDashboardPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.total}</div>
+                <div className="text-2xl font-bold">{stats.totalSuppliers}</div>
                 <p className="text-xs text-muted-foreground pt-1">
                   {stats.preMachining} Pre-Machining, {stats.childPart} Child-Part
                 </p>
@@ -109,7 +136,7 @@ export default function AdminDashboardPage() {
                 <CheckCircle2 className="h-4 w-4 text-blue-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.pendingDocs}</div>
+                <div className="text-2xl font-bold">{stats.pendingApprovals}</div>
                 <p className="text-xs text-muted-foreground pt-1">
                   Documents awaiting review
                 </p>
@@ -130,7 +157,6 @@ export default function AdminDashboardPage() {
             </Card>
         </Link>
 
-        {/* Linking 'Raise NCR' to Performance page for now, as that's where complaints are logged */}
         <Link href="/dashboard/admin/performance"> 
             <Card className="hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors cursor-pointer border-dashed h-full">
                 <CardContent className="flex flex-col items-center justify-center py-6">
@@ -170,8 +196,8 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
               <div className="space-y-4">
-                  {activities.length > 0 ? (
-                      activities.map((item, i) => (
+                  {recentActivities.length > 0 ? (
+                      recentActivities.map((item, i) => (
                           <div key={i} className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0">
                               <div>
                                   <p className="font-medium">{item.supplierName}</p>
@@ -191,7 +217,9 @@ export default function AdminDashboardPage() {
                           </div>
                       ))
                   ) : (
-                      <div className="text-center text-muted-foreground py-4">No recent activity found.</div>
+                      <div className="text-center text-muted-foreground py-4">
+                          {loading ? "Loading..." : "No recent activity found."}
+                      </div>
                   )}
               </div>
           </CardContent>

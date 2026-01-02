@@ -28,7 +28,7 @@ export default function DailyPerformancePage() {
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
   // Calculate stats based on filtered selection
-  const totalSupplied = filteredLogs.reduce((acc, curr) => acc + curr.suppliedQty, 0)
+  const totalSupplied = filteredLogs.reduce((acc, curr) => acc + curr.loadReceived, 0)
   const totalRejected = filteredLogs.reduce((acc, curr) => acc + curr.rejectedQty, 0)
   const rejectionRate = totalSupplied > 0 ? ((totalRejected / totalSupplied) * 100).toFixed(2) : "0.00"
 

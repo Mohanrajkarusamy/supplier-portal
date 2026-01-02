@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { CheckCircle2, XCircle, Eye, FileText } from "lucide-react"
-import { MOCK_DOCUMENTS, Document } from "@/lib/documents"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -11,36 +10,59 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 
 export default function AdminApprovalsPage() {
-    // Filter to show only Pending documents initially, or allow filtering
-    // For "Approvals" page, showing Pending is the primary use case.
-    const [docs, setDocs] = useState(MOCK_DOCUMENTS.filter(d => d.status === "Pending"))
-    const [selectedDoc, setSelectedDoc] = useState<Document | null>(null)
-    const [remarks, setRemarks] = useState("")
+    const [docs, setDocs] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
 
-    const refreshDocs = () => {
-        setDocs(MOCK_DOCUMENTS.filter(d => d.status === "Pending"))
+    const fetchDocs = async () => {
+        try {
+            const res = await fetch('/api/documents?status=Pending') // Assuming API filters or we filter client side
+            // Actually my API helper returns all if no filter, or filter by supplierId.
+            // Let's fetch all and filter client side for "Pending" to be safe, or update API.
+            // For now, fetch all.
+            const resAll = await fetch('/api/documents')
+            const allDocs = await resAll.json()
+            if (Array.isArray(allDocs)) {
+                setDocs(allDocs.filter((d: any) => d.status === "Pending"))
+            }
+        } catch (e) { console.error(e) }
+        setLoading(false)
     }
 
-    const handleAction = (status: "Approved" | "Rejected") => {
+    useEffect(() => {
+        fetchDocs()
+    }, [])
+
+    const [selectedDoc, setSelectedDoc] = useState<any | null>(null)
+    const [remarks, setRemarks] = useState("")
+
+    const handleAction = async (status: "Approved" | "Rejected") => {
         if (!selectedDoc) return
 
-        // Update in Shared Store
-        const docIndex = MOCK_DOCUMENTS.findIndex(d => d.id === selectedDoc.id)
-        if (docIndex >= 0) {
-            MOCK_DOCUMENTS[docIndex].status = status
-            MOCK_DOCUMENTS[docIndex].remarks = remarks
-        }
+        try {
+            const res = await fetch('/api/documents', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: selectedDoc.id,
+                    status,
+                    remarks
+                })
+            })
 
-        alert(`Document ${status} Successfully!`)
-        
-        // Refresh List
-        refreshDocs()
-        setSelectedDoc(null)
-        setRemarks("")
+            if (res.ok) {
+                alert(`Document ${status} Successfully!`)
+                fetchDocs() // Refresh list
+                setSelectedDoc(null)
+                setRemarks("")
+            } else {
+                alert("Action failed")
+            }
+        } catch (e) {
+            alert("Network error")
+        }
     }
 
     const handleDownload = () => {
-        // Simulation of download
         alert(`Downloading file: ${selectedDoc?.fileUrl}`)
     }
 
@@ -69,7 +91,9 @@ export default function AdminApprovalsPage() {
                         <TableBody>
                             {docs.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center h-24">No pending approvals.</TableCell>
+                                    <TableCell colSpan={5} className="text-center h-24">
+                                        {loading ? "Loading..." : "No pending approvals."}
+                                    </TableCell>
                                 </TableRow>
                             ) : (
                                 docs.map((doc) => (

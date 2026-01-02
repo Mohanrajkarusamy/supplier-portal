@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Search, Building2, Phone, Mail, MoreHorizontal, Trash2, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,14 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Link from "next/link"
 
-
-import { MOCK_USERS, User } from "@/lib/auth"
+import { MOCK_USERS } from "@/lib/auth"
+import { useLocalStorage } from "@/hooks/use-local-storage"
 
 export default function SuppliersPage() {
   // Initialize from global mock data
-  const [suppliers, setSuppliers] = useState(
-    Object.values(MOCK_USERS)
+  const initialSuppliers = Object.values(MOCK_USERS)
       .filter(u => u.role === "SUPPLIER")
       .map(u => ({
           id: u.id,
@@ -30,7 +30,28 @@ export default function SuppliersPage() {
           status: "Active",
           approvedParts: u.companyDetails?.approvedParts || []
       }))
-  )
+
+  // const [suppliers, setSuppliers] = useLocalStorage<any[]>("users", initialSuppliers) 
+  // Refactored to use API
+  
+  const [suppliers, setSuppliers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchSuppliers = async () => {
+    try {
+        const res = await fetch('/api/suppliers')
+        const data = await res.json()
+        if (Array.isArray(data)) {
+            setSuppliers(data)
+        }
+    } catch (e) { console.error("Failed to fetch suppliers") }
+    setLoading(false)
+  }
+
+  useEffect(() => {
+      fetchSuppliers()
+  }, [])
+
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
 
@@ -52,115 +73,93 @@ export default function SuppliersPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [originalSupplierId, setOriginalSupplierId] = useState("")
 
-  const handleAddSupplier = () => {
+  const handleAddSupplier = async () => {
     if (isEditing) {
         handleUpdateSupplier()
         return
     }
 
-    if (MOCK_USERS[supplierId]) {
+    // ID Duplicate check is now better handled by backend, but we can keep frontend check if list loaded
+    if (suppliers.some(s => s.id === supplierId)) {
         alert("Supplier ID already exists! Please use a unique ID.")
         return
     }
 
-    // 1. Create Local Display Object
     const newSupplierDisplay = {
       id: supplierId,
       name,
       category,
+      role: "SUPPLIER",
       email,
       phone,
-      status: "Active",
-      approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
+      status: "Pending Activation",
+      password: "", 
+      approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean),
+      companyDetails: { // Match Schema Structure
+          category,
+          approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
+      }
     }
 
-    // 2. Update Global MOCK_USERS (So other pages see it)
-    MOCK_USERS[newSupplierDisplay.id] = {
-        id: newSupplierDisplay.id,
-        name: name,
-        role: "SUPPLIER",
-        email: email,
-        phone: phone,
-        password: "1234", // Default temp password
-        companyDetails: {
-            address: "New Added Address", 
-            category: category as "Pre-Machining" | "Child-Part",
-            operationType: operation as any,
-            approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
-        }
-    }
+    const res = await fetch('/api/suppliers', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(newSupplierDisplay)
+    })
 
-    // 3. Update Local State for Table
-    setSuppliers([...suppliers, newSupplierDisplay])
-    setOpen(false)
-    resetForm()
+    if (res.ok) {
+        setOpen(false)
+        resetForm()
+        fetchSuppliers() // Refresh list
+        alert(`Supplier Created: ${name} (ID: ${supplierId})\n\nSimulating Email to ${email}:\n"Subject: Welcome to Supplier Portal\nPlease register using your User ID: ${supplierId} at the activation page."`)
+    } else {
+        alert("Failed to create supplier")
+    }
   }
 
-  const handleUpdateSupplier = () => {
-      // Check for ID conflict if ID changed
-      if (supplierId !== originalSupplierId && MOCK_USERS[supplierId]) {
-          alert("Supplier ID already exists! Please use a unique ID.")
-          return
-      }
-
-      // 1. Update Global Store
-      const oldData = MOCK_USERS[originalSupplierId]
-      if (oldData) {
-          // If ID changed, delete old key
-          if (supplierId !== originalSupplierId) {
-              delete MOCK_USERS[originalSupplierId]
-          }
-
-          // Save with new ID (or update existing)
-          MOCK_USERS[supplierId] = {
-              ...oldData,
-              id: supplierId,
-              name,
-              email,
-              phone,
-              companyDetails: {
-                  address: oldData.companyDetails?.address || "N/A",
-                  ...oldData.companyDetails,
-                  category: category as any,
-                  operationType: operation as any,
-                  approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
-              }
-          }
-      }
-
-      // 2. Update Local State
-      setSuppliers(suppliers.map(s => s.id === originalSupplierId ? {
-          ...s,
+  const handleUpdateSupplier = async () => {
+      const updateData = {
           id: supplierId,
           name,
           category,
+          role: "SUPPLIER",
           email,
           phone,
-          approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
-      } : s))
+          approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean),
+          companyDetails: {
+            category,
+            approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
+          }
+      }
 
-      setOpen(false)
-      resetForm()
+      const res = await fetch('/api/suppliers', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(updateData)
+      })
+
+      if (res.ok) {
+        setOpen(false)
+        resetForm()
+        fetchSuppliers()
+      } else {
+          alert("Update failed")
+      }
   }
 
   const handleEditClick = (supplier: any) => {
       setIsEditing(true)
-      setOriginalSupplierId(supplier.id) // Track original ID
+      setOriginalSupplierId(supplier.id) 
       setSupplierId(supplier.id)
       setName(supplier.name)
-      setCategory(supplier.category)
+      setCategory(supplier.category || supplier.companyDetails?.category)
       setEmail(supplier.email)
       setPhone(supplier.phone)
-      setApprovedPartsText(supplier.approvedParts ? supplier.approvedParts.join(", ") : "")
       
-      // Attempt to retrieve operation type from mock if available or default
-      const mockUser = MOCK_USERS[supplier.id]
-      if (mockUser && mockUser.companyDetails?.operationType) {
-          setOperation(mockUser.companyDetails.operationType)
-      } else {
-          setOperation("")
-      }
-
+      const parts = supplier.approvedParts || supplier.companyDetails?.approvedParts || []
+      setApprovedPartsText(parts.join(", "))
+      
+      setOperation("") 
       setOpen(true)
   }
 
@@ -170,16 +169,18 @@ export default function SuppliersPage() {
       setDeleteDialogOpen(true)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
       if (!supplierToDelete) return
-      // 1. Remove from Global Store
-      delete MOCK_USERS[supplierToDelete]
-      // 2. Remove from Local State
-      setSuppliers(suppliers.filter(s => s.id !== supplierToDelete))
-      // 3. Log Reason (Mock log)
-      console.log(`Supplier ${supplierToDelete} deleted. Reason: ${deleteReason}`)
-      setDeleteDialogOpen(false)
-      setSupplierToDelete(null)
+      
+      const res = await fetch(`/api/suppliers?id=${supplierToDelete}`, { method: 'DELETE' })
+      if (res.ok) {
+          console.log(`Supplier ${supplierToDelete} deleted. Reason: ${deleteReason}`)
+          setDeleteDialogOpen(false)
+          setSupplierToDelete(null)
+          fetchSuppliers()
+      } else {
+          alert("Delete failed")
+      }
   }
 
   const resetForm = () => {
@@ -274,9 +275,8 @@ export default function SuppliersPage() {
                      <div className="col-span-3">
                         <Select value={category} onValueChange={(val) => {
                             setCategory(val);
-                            // Auto-set operation for Child-Part
                             if(val === "Child-Part") setOperation("Full Finishing");
-                            else setOperation("") // Reset if switching to Pre-Machining
+                            else setOperation("") 
                         }}>
                             <SelectTrigger>
                                 <SelectValue placeholder="Select Category" />
@@ -442,7 +442,9 @@ function SupplierTable({ data, onDeleteClick, onEditClick }: { data: any[], onDe
                 <TableCell>
                   <div className="flex items-center">
                       <Building2 className="mr-2 h-4 w-4 text-slate-500" />
-                      {supplier.name}
+                      <Link href={`/dashboard/admin/suppliers/${supplier.id}`} className="hover:underline hover:text-primary">
+                          {supplier.name}
+                      </Link>
                   </div>
                 </TableCell>
                 <TableCell>{supplier.category}</TableCell>
@@ -467,7 +469,9 @@ function SupplierTable({ data, onDeleteClick, onEditClick }: { data: any[], onDe
                 </TableCell>
                 <TableCell>
                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                       supplier.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                       supplier.status === 'Active' ? 'bg-green-100 text-green-800' : 
+                       supplier.status === 'Pending Activation' ? 'bg-blue-100 text-blue-800' :
+                       'bg-yellow-100 text-yellow-800'
                    }`}>
                       {supplier.status}
                   </span>

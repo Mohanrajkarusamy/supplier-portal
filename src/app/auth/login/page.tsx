@@ -47,7 +47,14 @@ export default function LoginPage() {
     try {
         const res = await verifyPassword(userId, password)
         if (res.success) {
-             // Password OK, now send OTP
+             // Bypass OTP for Admin
+             if (res.user?.role === "ADMIN") {
+                 localStorage.setItem("currentUserId", res.user.id)
+                 router.push("/dashboard/admin")
+                 return
+             }
+
+             // Password OK, now send OTP for non-admins
              const otpRes = await sendOTP(userId)
              if (otpRes.success) {
                 setStep("OTP")
@@ -193,7 +200,7 @@ export default function LoginPage() {
         <CardFooter className="flex-col gap-4 justify-center border-t border-slate-700/50 pt-4">
           {step === "ID" && (
               <p className="text-sm text-slate-400">
-                New Supplier? <Link href="/auth/register" className="text-primary hover:underline font-semibold">Register Here</Link>
+                Received Invite? <Link href="/auth/register" className="text-primary hover:underline font-semibold">Activate Account</Link>
               </p>
           )}
           <p className="text-xs text-slate-500 flex items-center gap-1">

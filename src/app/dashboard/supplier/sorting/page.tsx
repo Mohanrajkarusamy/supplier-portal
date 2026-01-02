@@ -1,21 +1,33 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Save, Clock, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { MOCK_SORTING_LOGS, SortingLog } from "@/lib/sorting"
 
 export default function SupplierSortingPage() {
     const currentSupplierId = "SUP001"
     const supplierName = "Andavar Casting"
 
-    const [logs, setLogs] = useState<SortingLog[]>(
-        MOCK_SORTING_LOGS.filter(l => l.supplierId === currentSupplierId)
-    )
+    const [logs, setLogs] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
+
+    const fetchLogs = async () => {
+        try {
+            const res = await fetch(`/api/sorting?supplierId=${currentSupplierId}`)
+            if (res.ok) {
+                setLogs(await res.json())
+            }
+        } catch (e) { console.error(e) }
+        setLoading(false)
+    }
+
+    useEffect(() => {
+        fetchLogs()
+    }, [])
 
     // Form State
     const [date, setDate] = useState("")
@@ -24,7 +36,7 @@ export default function SupplierSortingPage() {
     const [defects, setDefects] = useState("")
     const [reworked, setReworked] = useState("")
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if(!date || !partName || !totalQty) return
 
         const total = parseInt(totalQty) || 0
@@ -32,7 +44,7 @@ export default function SupplierSortingPage() {
         const rew = parseInt(reworked) || 0
         const ok = total - ng + rew
 
-        const newLog: SortingLog = {
+        const newLog = {
             id: `SR${Date.now()}`,
             supplierId: currentSupplierId,
             supplierName: supplierName,
@@ -45,17 +57,26 @@ export default function SupplierSortingPage() {
             status: "Pending"
         }
 
-        // Simulating backend update
-        MOCK_SORTING_LOGS.unshift(newLog)
-        setLogs([newLog, ...logs])
+        try {
+            const res = await fetch('/api/sorting', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(newLog)
+            })
 
-        // Reset
-        setDate("")
-        setPartName("")
-        setTotalQty("")
-        setDefects("")
-        setReworked("")
-        alert("Sorting Log Submitted Successfully")
+            if (res.ok) {
+                fetchLogs()
+                // Reset
+                setDate("")
+                setPartName("")
+                setTotalQty("")
+                setDefects("")
+                setReworked("")
+                alert("Sorting Log Submitted Successfully")
+            } else {
+                alert("Submission failed")
+            }
+        } catch (e) { alert("Network error")}
     }
 
     return (
@@ -151,7 +172,9 @@ export default function SupplierSortingPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center h-24">No logs found.</TableCell>
+                                        <TableCell colSpan={5} className="text-center h-24">
+                                            {loading ? "Loading..." : "No logs found."}
+                                        </TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>

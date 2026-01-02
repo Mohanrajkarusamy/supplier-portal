@@ -72,7 +72,7 @@ export function RejectionPieChart({ data }: { data: { name: string, value: numbe
           outerRadius={100}
           fill="#8884d8"
           dataKey="value"
-          label={({ name, percent }: { name: string, percent?: number }) => `${name} ${(percent ? percent * 100 : 0).toFixed(0)}%`}
+          label={({ name, percent }: any) => `${name} ${(percent ? percent * 100 : 0).toFixed(0)}%`}
         >
           {validData.map((entry, index) => (
             <Cell key={`cell-${index}`} fill={entry.fill} />

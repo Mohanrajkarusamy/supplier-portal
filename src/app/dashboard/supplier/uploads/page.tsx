@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Upload, FileUp, CheckCircle, Clock, Send } from "lucide-react"
-import { MOCK_DOCUMENTS, Document } from "@/lib/documents"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,37 +14,65 @@ export default function SupplierUploadsPage() {
     const currentSupplierId = "SUP001" 
     const supplierName = "Alpha Castings" // Mock name
 
-    const [uploads, setUploads] = useState(MOCK_DOCUMENTS.filter(d => d.supplierId === currentSupplierId))
+    const [uploads, setUploads] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
+
+    const fetchUploads = async () => {
+        try {
+            const res = await fetch(`/api/documents?supplierId=${currentSupplierId}`)
+            if (res.ok) {
+                const data = await res.json()
+                setUploads(data)
+            }
+        } catch (e) { console.error(e) }
+        setLoading(false)
+    }
+
+    useEffect(() => {
+        fetchUploads()
+    }, [])
+    
     const [type, setType] = useState<string>("")
     const [partName, setPartName] = useState("")
+    const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
-    const handleUpload = () => {
-        if (!type) return
-
-        const newDoc: Document = {
-            id: `D${Date.now()}`,
-            type: type as any,
-            supplierId: currentSupplierId,
-            supplierName: supplierName,
-            partName: partName || "General",
-            date: new Date().toISOString().split('T')[0],
-            status: "Pending",
-            fileUrl: `doc_${Date.now()}.pdf` // Simulated file
+    const handleUpload = async () => {
+        if (!type || !selectedFile) {
+            alert("Please select a valid type and file.")
+            return
         }
 
-        // Update Global Store
-        MOCK_DOCUMENTS.unshift(newDoc)
-        
-        // Update Local State
-        setUploads([newDoc, ...uploads])
-        
-        // Reset Form
-        setType("")
-        setPartName("")
-        // Reset Form
-        setType("")
-        setPartName("")
-        alert("Document Uploaded Successfully!")
+        const formData = new FormData()
+        formData.append("type", type)
+        formData.append("supplierId", currentSupplierId)
+        formData.append("supplierName", supplierName)
+        formData.append("partName", partName || "General")
+        formData.append("date", new Date().toISOString().split('T')[0])
+        formData.append("file", selectedFile)
+
+        try {
+            const res = await fetch('/api/documents', {
+                method: 'POST',
+                body: formData
+            })
+
+            if (res.ok) {
+                // Update Store
+                fetchUploads()
+                
+                // Reset Form
+                setType("")
+                setPartName("")
+                setSelectedFile(null)
+                // Clear file input manually if needed or just let react state handle it if controlled
+                // Uncontrolled file input is tricky to clear, but we'll focus on functionality
+                alert("Document Uploaded Successfully!")
+            } else {
+                alert("Upload failed")
+            }
+        } catch (e) {
+            alert("Network error")
+        }
     }
 
     const handleSendEmail = () => {
@@ -95,7 +122,7 @@ export default function SupplierUploadsPage() {
                         </div>
                         <div className="space-y-2">
                             <Label>File Attachment</Label>
-                            <Input type="file" />
+                            <Input type="file" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
                         </div>
                         <div className="flex space-x-2">
                              <Button className="flex-1" onClick={handleUpload} disabled={!type}>
@@ -148,7 +175,9 @@ export default function SupplierUploadsPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="text-center h-24">No documents uploaded.</TableCell>
+                                        <TableCell colSpan={4} className="text-center h-24">
+                                            {loading ? "Loading..." : "No documents uploaded."}
+                                        </TableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
