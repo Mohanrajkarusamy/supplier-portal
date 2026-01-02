@@ -9,15 +9,12 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { activateUser } from "@/lib/auth"
 import Link from "next/link"
-import { useLocalStorage } from "@/hooks/use-local-storage"
+
 
 export default function RegisterPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   
-  // Connect to persistent storage to update password
-  const [users, setUsers] = useLocalStorage<any[]>("users", [])
-
   const [formData, setFormData] = useState({
       userId: "", 
       email: "",
@@ -44,24 +41,8 @@ export default function RegisterPage() {
     const res = await activateUser(formData.userId, formData.email, formData.password)
     
     if (res.success) {
-        // 2. Update persistent storage (Client-side simulation of DB update)
-        // Find user and update password
-        const userIndex = users.findIndex(u => u.id === formData.userId.toUpperCase())
-        if (userIndex >= 0) {
-            const updatedUsers = [...users]
-            updatedUsers[userIndex] = { 
-                ...updatedUsers[userIndex], 
-                password: formData.password
-            }
-            setUsers(updatedUsers)
-            
-            alert(`Account Activated! You can now login.`)
-            router.push("/auth/login")
-        } else {
-             // Should not happen if activateUser returned success, unless storage sync issue
-             // Fallback if user is in MOCK but not in local storage yet (rare case if admin added them)
-             alert("Activation successful but storage sync failed. Please contact admin.")
-        }
+        alert(`Account Activated! You can now login.`)
+        router.push("/auth/login")
     } else {
         alert(res.message)
     }
