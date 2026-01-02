@@ -17,7 +17,7 @@ export interface User {
 }
 
 // Helper to get users from memory + local storage
-function getUsers() {
+export function getAllUsers() {
     const combinedUsers = { ...MOCK_USERS }
     if (typeof window !== "undefined") {
         try {
@@ -71,14 +71,16 @@ export async function registerUser(userData: Partial<User>): Promise<{ success: 
 
 
 export async function checkUser(userId: string): Promise<{ exists: boolean; name?: string; role?: "ADMIN" | "SUPPLIER" }> {
-  const users = getUsers()
+  const users = getAllUsers()
+
   const user = users[userId]
   return { exists: !!user, name: user?.name, role: user?.role } 
 }
 
 export async function verifyPassword(userId: string, password: string): Promise<{ success: boolean; message: string; user?: User; token?: string }> {
   try {
-    const users = getUsers()
+    const users = getAllUsers()
+
     const user = users[userId]
     if (user && user.password === password) {
         return { 
@@ -106,7 +108,8 @@ export async function verifyOTP(userId: string, otp: string): Promise<{ success:
 }
 
 export async function activateUser(userId: string, email: string, password: string): Promise<{ success: boolean; message: string; token?: string; user?: User }> {
-    const users = getUsers()
+    const users = getAllUsers()
+
     const user = users[userId]
     
     if (user) {

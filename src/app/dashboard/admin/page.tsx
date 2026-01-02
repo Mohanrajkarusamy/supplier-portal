@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
+import { getAllUsers } from "@/lib/auth"
+
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
@@ -22,66 +24,70 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function fetchData() {
         try {
-            const [usersRes, issuesRes, docsRes] = await Promise.all([
-                fetch('/api/suppliers'),
-                fetch('/api/issues'),
-                fetch('/api/documents')
-            ])
+            // Get Suppliers locally
+            const suppliersMap = getAllUsers()
+            const users = Object.values(suppliersMap).filter((u: any) => u.role === "SUPPLIER" || !u.role)
 
-            const users = await usersRes.json()
-            const issues = await issuesRes.json()
-            const documents = await docsRes.json()
+            // Try to fetch other data, but don't fail if API is down (demo mode)
+            let issues: any[] = []
+            let documents: any[] = []
 
-            if (Array.isArray(users) && Array.isArray(issues) && Array.isArray(documents)) {
-                // Ensure we count correctly (handling legacy data with missing role)
-                const suppliers = users.filter((u: any) => u.role === "SUPPLIER" || !u.role)
-                
-                setStats({
-                    totalSuppliers: suppliers.length,
-                    preMachining: suppliers.filter((s: any) => s.companyDetails?.category === "Pre-Machining" || s.category === "Pre-Machining").length,
-                    childPart: suppliers.filter((s: any) => s.companyDetails?.category === "Child-Part" || s.category === "Child-Part").length,
-                    openIssues: issues.filter((i: any) => i.status === "Open").length,
-                    pendingApprovals: documents.filter((d: any) => d.status === "Pending").length
-                })
+            try {
+                const issuesRes = await fetch('/api/issues')
+                if (issuesRes.ok) issues = await issuesRes.json()
+            } catch (e) { console.warn("Issues API failed, using defaults") }
 
-                // Construct Activities
-                const issueActivities = issues.slice(0, 5).map((i: any) => ({
-                    id: i.id,
-                    type: "issue",
-                    action: `Quality Issue: ${i.type}`,
-                    desc: i.description,
-                    status: i.status,
-                    date: i.raisedDate,
-                    supplierId: i.supplierId
-                }))
-                
-                const docActivities = documents.slice(0, 5).map((d: any) => ({
-                    id: d.id,
-                    type: "document",
-                    action: `Uploaded ${d.type}`,
-                    desc: d.type,
-                    status: d.status,
-                    date: d.date,
-                    supplierId: d.supplierId
-                }))
+            try {
+                 const docsRes = await fetch('/api/documents')
+                 if (docsRes.ok) documents = await docsRes.json()
+            } catch (e) { console.warn("Docs API failed, using defaults") }
 
-                // Merge and sort
-                const combined = [...docActivities, ...issueActivities]
-                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                    .slice(0, 10)
+            setStats({
+                totalSuppliers: users.length,
+                preMachining: users.filter((s: any) => s.companyDetails?.category === "Pre-Machining" || s.category === "Pre-Machining").length,
+                childPart: users.filter((s: any) => s.companyDetails?.category === "Child-Part" || s.category === "Child-Part").length,
+                openIssues: Array.isArray(issues) ? issues.filter((i: any) => i.status === "Open").length : 0,
+                pendingApprovals: Array.isArray(documents) ? documents.filter((d: any) => d.status === "Pending").length : 0
+            })
 
-                // Helper to get name
-                const activitiesWithNames = combined.map(act => {
-                    const supp = users.find((u: any) => u.id === act.supplierId)
-                    return { 
-                        ...act, 
-                        supplierName: supp ? supp.name : act.supplierId,
-                        time: new Date(act.date).toLocaleDateString()
-                    }
-                })
+            // Construct Activities
+            const issueActivities = Array.isArray(issues) ? issues.slice(0, 5).map((i: any) => ({
+                id: i.id,
+                type: "issue",
+                action: `Quality Issue: ${i.type}`,
+                desc: i.description,
+                status: i.status,
+                date: i.raisedDate,
+                supplierId: i.supplierId
+            })) : []
+            
+            const docActivities = Array.isArray(documents) ? documents.slice(0, 5).map((d: any) => ({
+                id: d.id,
+                type: "document",
+                action: `Uploaded ${d.type}`,
+                desc: d.type,
+                status: d.status,
+                date: d.date,
+                supplierId: d.supplierId
+            })) : []
 
-                setRecentActivities(activitiesWithNames)
-            }
+            // Merge and sort
+            const combined = [...docActivities, ...issueActivities]
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 10)
+
+            // Helper to get name
+            const activitiesWithNames = combined.map(act => {
+                const supp = users.find((u: any) => u.id === act.supplierId)
+                return { 
+                    ...act, 
+                    supplierName: supp ? supp.name : act.supplierId,
+                    time: new Date(act.date).toLocaleDateString()
+                }
+            })
+
+            setRecentActivities(activitiesWithNames)
+            
         } catch (e) { console.error("Dashboard Fetch Error", e) }
         setLoading(false)
     }
