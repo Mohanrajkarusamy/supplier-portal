@@ -109,7 +109,9 @@ export async function sendOTP(userId: string): Promise<{ success: boolean; messa
 
 export async function verifyOTP(userId: string, otp: string): Promise<{ success: boolean; token?: string; user?: User; message: string }> {
    if (otp === "1234") {
-     return { success: true, token: "mock-jwt-token-123", message: "Login successful" }
+     const users = getAllUsers()
+     const user = users[userId]
+     return { success: true, token: "mock-jwt-token-123", message: "Login successful", user }
    }
    return { success: false, message: "Invalid OTP" }
 }
