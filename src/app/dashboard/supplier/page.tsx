@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { MOCK_PERFORMANCE, MOCK_DAILY_LOGS } from "@/lib/performance"
 import { PerformanceLineChart, RejectionPieChart } from "@/components/dashboard/enhanced-charts"
-import { MOCK_USERS } from "@/lib/auth"
+import { getAllUsers } from "@/lib/auth"
 
 import { SYSTEM_SETTINGS } from "@/lib/settings"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -19,10 +19,12 @@ export default function SupplierDashboardPage() {
   useEffect(() => {
       // simulate session check
       const storedId = localStorage.getItem("currentUserId")
-      if (storedId && MOCK_USERS[storedId]) {
+      const allUsers = getAllUsers()
+      
+      if (storedId && allUsers[storedId]) {
           setSupplierId(storedId)
-          setSupplierName(MOCK_USERS[storedId].name)
-          setSupplierCategory(MOCK_USERS[storedId].companyDetails?.category || "")
+          setSupplierName(allUsers[storedId].name)
+          setSupplierCategory(allUsers[storedId].companyDetails?.category || "")
           setDailyLogs(MOCK_DAILY_LOGS[storedId] || [])
       } else {
           setSupplierName("Unknown Supplier")
