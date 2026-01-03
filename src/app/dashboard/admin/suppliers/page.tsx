@@ -29,7 +29,6 @@ export default function SuppliersPage() {
           email: u.email || "",
           phone: u.phone || "",
           status: "Active",
-          status: "Active",
           approvedParts: u.companyDetails?.approvedParts || []
       }))
 
@@ -106,10 +105,6 @@ export default function SuppliersPage() {
       email,
       phone,
       status: "Pending Activation",
-      role: "SUPPLIER",
-      email,
-      phone,
-      status: "Pending Activation",
       approvedParts: partsList,
       companyDetails: { 
           category,
@@ -131,16 +126,13 @@ export default function SuppliersPage() {
              return {
                  ...s,
                  name,
-                 category,
-                 email,
-                 phone,
-                 email,
-                 phone,
-                 approvedParts: partsList,
                  companyDetails: {
+                    ...s.companyDetails,
                     category,
                     approvedParts: partsList
-                 }
+                 },
+                 email,
+                 phone,
              }
           }
           return s

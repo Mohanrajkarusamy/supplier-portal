@@ -12,7 +12,10 @@ const UserSchema = new Schema({
     address: { type: String },
     category: { type: String, enum: ['Pre-Machining', 'Child-Part'] },
     operationType: { type: String },
-    approvedParts: [{ type: String }]
+    approvedParts: [{ 
+        name: { type: String },
+        partNumber: { type: String }
+    }]
   }
 }, { timestamps: true });
 
