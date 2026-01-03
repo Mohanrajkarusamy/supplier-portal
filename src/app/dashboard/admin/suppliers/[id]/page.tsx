@@ -105,8 +105,7 @@ export default function SupplierProfilePage() {
                                 <span className="text-sm text-muted-foreground">No approved parts listed.</span>
                             )}
                          </div>
-                            {(!user.companyDetails?.approvedParts || user.companyDetails.approvedParts.length === 0) && <span className="text-muted-foreground text-sm">None assigned</span>}
-                         </div>
+
                     </CardContent>
                 </Card>
                  <Card>
