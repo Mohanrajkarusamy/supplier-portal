@@ -29,6 +29,7 @@ export default function SuppliersPage() {
           email: u.email || "",
           phone: u.phone || "",
           status: "Active",
+          status: "Active",
           approvedParts: u.companyDetails?.approvedParts || []
       }))
 
@@ -49,7 +50,11 @@ export default function SuppliersPage() {
   const [operation, setOperation] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
-  const [approvedPartsText, setApprovedPartsText] = useState("")
+  
+  // New State for Structured Parts
+  const [partsList, setPartsList] = useState<{ name: string; partNumber: string }[]>([])
+  const [newPartName, setNewPartName] = useState("")
+  const [newPartNumber, setNewPartNumber] = useState("")
 
   // Delete Flow State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -101,10 +106,14 @@ export default function SuppliersPage() {
       email,
       phone,
       status: "Pending Activation",
-      approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean),
+      role: "SUPPLIER",
+      email,
+      phone,
+      status: "Pending Activation",
+      approvedParts: partsList,
       companyDetails: { 
           category,
-          approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
+          approvedParts: partsList
       }
     }
 
@@ -125,10 +134,12 @@ export default function SuppliersPage() {
                  category,
                  email,
                  phone,
-                 approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean),
+                 email,
+                 phone,
+                 approvedParts: partsList,
                  companyDetails: {
                     category,
-                    approvedParts: approvedPartsText.split(",").map(p => p.trim()).filter(Boolean)
+                    approvedParts: partsList
                  }
              }
           }
@@ -150,8 +161,9 @@ export default function SuppliersPage() {
       setPhone(supplier.phone)
       
       const parts = supplier.approvedParts || supplier.companyDetails?.approvedParts || []
-      setApprovedPartsText(parts.join(", "))
-      
+      setPartsList(parts)
+       // setApprovedPartsText(parts.join(", ")) - removed
+       
       setOperation("") 
       setOpen(true)
   }
@@ -181,8 +193,27 @@ export default function SuppliersPage() {
     setOperation("")
     setEmail("")
     setPhone("")
-    setApprovedPartsText("")
+    setEmail("")
+    setPhone("")
+    // setApprovedPartsText("")
+    setPartsList([])
+    setNewPartName("")
+    setNewPartNumber("")
     setIsEditing(false)
+  }
+
+  const handleAddPart = () => {
+      if(newPartName && newPartNumber) {
+          setPartsList([...partsList, { name: newPartName, partNumber: newPartNumber }])
+          setNewPartName("")
+          setNewPartNumber("")
+      }
+  }
+
+  const handleRemovePart = (index: number) => {
+      const newList = [...partsList]
+      newList.splice(index, 1)
+      setPartsList(newList)
   }
 
   const filteredSuppliers = suppliers.filter(s => 
@@ -306,6 +337,37 @@ export default function SuppliersPage() {
                        </div>
                   )}
 
+                   <div className="grid grid-cols-4 items-start gap-4">
+                     <Label className="text-right pt-2">Approved Components</Label>
+                     <div className="col-span-3 space-y-3">
+                        <div className="flex gap-2">
+                             <Input 
+                                placeholder="Part Name (e.g. Gear)" 
+                                value={newPartName}
+                                onChange={(e) => setNewPartName(e.target.value)}
+                             />
+                             <Input 
+                                placeholder="Part No (e.g. GS-101)" 
+                                value={newPartNumber}
+                                onChange={(e) => setNewPartNumber(e.target.value)}
+                             />
+                             <Button type="button" size="sm" onClick={handleAddPart}>Add</Button>
+                        </div>
+                        
+                        {partsList.length > 0 && (
+                            <div className="border rounded-md p-2 bg-slate-50 space-y-1">
+                                {partsList.map((part, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-sm p-1 border-b last:border-0">
+                                        <span><b>{part.name}</b> <span className="text-slate-500">({part.partNumber})</span></span>
+                                        <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500" onClick={() => handleRemovePart(idx)}>
+                                            <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                     </div>
+                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="email" className="text-right">Email</Label>
                     <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" placeholder="contact@company.com" />
@@ -314,8 +376,6 @@ export default function SuppliersPage() {
                     <Label htmlFor="phone" className="text-right">Phone</Label>
                     <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="col-span-3" placeholder="+91 ..." />
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">Approved Parts</Label>
                     <Textarea 
                         value={approvedPartsText} 
                         onChange={(e) => setApprovedPartsText(e.target.value)} 
@@ -480,9 +540,9 @@ function SupplierTable({ data, onDeleteClick, onEditClick, onEmailClick }: { dat
                 <TableCell>
                     <div className="flex flex-wrap gap-1 max-w-[200px]">
                         {supplier.approvedParts && supplier.approvedParts.length > 0 ? (
-                            supplier.approvedParts.map((part: string, idx: number) => (
+                            supplier.approvedParts.map((part: any, idx: number) => (
                                 <span key={idx} className="inline-flex items-center rounded-md border bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-                                    {part}
+                                    {part.name} ({part.partNumber})
                                 </span>
                             ))
                         ) : (

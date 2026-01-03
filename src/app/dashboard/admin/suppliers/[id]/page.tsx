@@ -96,9 +96,15 @@ export default function SupplierProfilePage() {
                     </CardHeader>
                     <CardContent>
                          <div className="flex flex-wrap gap-1">
-                            {user.companyDetails?.approvedParts?.map((part: string, i: number) => (
-                                <span key={i} className="px-2 py-1 bg-secondary text-secondary-foreground text-xs rounded-md">{part}</span>
+                            {user.companyDetails?.approvedParts?.map((part: any, i: number) => (
+                                <span key={i} className="px-2 py-1 bg-secondary text-secondary-foreground text-xs rounded-md">
+                                    {part.name} <span className="opacity-70">({part.partNumber})</span>
+                                </span>
                             ))}
+                            {(!user.companyDetails?.approvedParts || user.companyDetails.approvedParts.length === 0) && (
+                                <span className="text-sm text-muted-foreground">No approved parts listed.</span>
+                            )}
+                         </div>
                             {(!user.companyDetails?.approvedParts || user.companyDetails.approvedParts.length === 0) && <span className="text-muted-foreground text-sm">None assigned</span>}
                          </div>
                     </CardContent>

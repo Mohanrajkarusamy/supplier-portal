@@ -12,7 +12,7 @@ export interface User {
     address: string
     category?: "Pre-Machining" | "Child-Part"
     operationType?: "Pre Machining" | "Semi Finishing" | "Full Finishing"
-    approvedParts?: string[]
+    approvedParts?: { name: string; partNumber: string }[]
   }
 }
 
@@ -54,7 +54,10 @@ export let MOCK_USERS: Record<string, User> = {
           address: "123 Industrial Estate",
           category: "Pre-Machining",
           operationType: "Pre Machining",
-          approvedParts: ["Housing Case A", "Pump Body"]
+          approvedParts: [
+              { name: "Housing Case A", partNumber: "HC-100" },
+              { name: "Pump Body", partNumber: "PB-200" }
+          ]
       }
   }
 }
