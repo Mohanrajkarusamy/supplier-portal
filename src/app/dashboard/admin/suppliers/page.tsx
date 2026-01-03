@@ -376,13 +376,6 @@ export default function SuppliersPage() {
                     <Label htmlFor="phone" className="text-right">Phone</Label>
                     <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="col-span-3" placeholder="+91 ..." />
                   </div>
-                    <Textarea 
-                        value={approvedPartsText} 
-                        onChange={(e) => setApprovedPartsText(e.target.value)} 
-                        className="col-span-3" 
-                        placeholder="Comma separated (e.g. Housing A, Gear Shaft)" 
-                    />
-                  </div>
                 </div>
                 <DialogFooter>
                   <Button onClick={handleAddSupplier} disabled={!supplierId || !name || !category || !email}>
