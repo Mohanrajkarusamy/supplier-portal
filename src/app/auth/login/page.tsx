@@ -59,8 +59,8 @@ export default function LoginPage() {
              const otpRes = await sendOTP(userId)
              if (otpRes.success) {
                 setStep("OTP")
-                // Simulate Email
-                alert(`Simulating Email to ${otpRes.email}:\n\nSubject: Supplier Portal Login OTP\n\nYour One-Time Password is: 1234`)
+                // Simulate Email with Dynamic Code
+                alert(`Simulating Email to ${otpRes.email}:\n\nSubject: Supplier Portal Login OTP\n\nYour One-Time Password is: ${otpRes.code}`)
                 
                 // Mask email for UI
                 if (otpRes.email) {
