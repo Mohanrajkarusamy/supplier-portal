@@ -108,7 +108,21 @@ export default function AdminSettingsPage() {
               <CardContent className="space-y-4">
                  {/* EmailJS Configuration */}
                  <div className="space-y-4 border p-4 rounded-md bg-slate-50">
-                    <h4 className="font-semibold text-sm">Automatic Email Service (EmailJS)</h4>
+                    <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-sm">Automatic Email Service (EmailJS)</h4>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Required for Real Emails</span>
+                    </div>
+                    
+                    <div className="text-sm text-slate-600 bg-white p-3 rounded border">
+                        <p className="font-medium mb-1">How to get these keys?</p>
+                        <ol className="list-decimal list-inside space-y-1 text-xs">
+                            <li>Sign up for free at <a href="https://www.emailjs.com/" target="_blank" className="text-blue-600 hover:underline">emailjs.com</a>.</li>
+                            <li><b>Service ID:</b> Found in 'Email Services' tab.</li>
+                            <li><b>Template ID:</b> Found in 'Email Templates' tab.</li>
+                            <li><b>Public Key:</b> Found in 'Account' (profile icon) {'>'} 'General'.</li>
+                        </ol>
+                        <p className="mt-2 text-xs text-muted-foreground italic">Leave empty to use <b>Simulation Mode</b> (Emails won't actually send, but app will pretend they did).</p>
+                    </div>
                     <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-2">
                              <Label>Service ID</Label>
