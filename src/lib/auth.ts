@@ -42,24 +42,7 @@ export let MOCK_USERS: Record<string, User> = {
       email: "admin@company.com",
       password: "1234"
   },
-  "SUP001": {
-      id: "SUP001",
-      name: "Andavar Casting",
-      role: "SUPPLIER",
-      email: "supp1@company.com", 
-      phone: "9876543210",
-      password: "1234",
-      status: "Active",
-      companyDetails: {
-          address: "123 Industrial Estate",
-          category: "Pre-Machining",
-          operationType: "Pre Machining",
-          approvedParts: [
-              { name: "Housing Case A", partNumber: "HC-100" },
-              { name: "Pump Body", partNumber: "PB-200" }
-          ]
-      }
-  }
+
 }
 
 export interface AuthState {
