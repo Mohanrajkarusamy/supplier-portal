@@ -55,6 +55,9 @@ export default function AdminReportsPage() {
       const body = encodeURIComponent(`Hello,\n\nA new report (${selectedType}) has been published for your review.\n\nFile Name: ${file.name}\n\nMessage:\n${emailMessage}`)
       const mailtoLink = `mailto:${supplierEmail}?subject=${subject}&body=${body}`
 
+      // Inform user about manual attachment requirement
+      alert(`Opening your email client...\n\nIMPORTANT: Please manually attach the file "${file.name}" to the email before sending.\n\n(Browsers cannot auto-attach files for security reasons)`)
+
       // Trigger Email Client
       window.location.href = mailtoLink
 
