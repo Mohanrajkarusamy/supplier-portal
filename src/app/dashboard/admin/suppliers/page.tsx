@@ -82,8 +82,17 @@ export default function SuppliersPage() {
   }
 
   const handleSendEmail = () => {
-      alert(`Simulating Email Sent!\n\nFrom: ${adminEmail}\nTo: ${selectedSupplierName} <${selectedSupplierEmail}>\nSubject: ${emailSubject}\n\nMessage:\n${emailMessage}`)
-      setEmailDialogOpen(false)
+    // Construct Mailto Link
+    const subject = encodeURIComponent(emailSubject)
+    const body = encodeURIComponent(emailMessage)
+    const mailtoLink = `mailto:${selectedSupplierEmail}?subject=${subject}&body=${body}`
+
+    // Trigger Email Client
+    window.location.href = mailtoLink
+
+    setEmailDialogOpen(false)
+    setEmailSubject("")
+    setEmailMessage("")
   }
   
   const handleAddSupplier = () => {
