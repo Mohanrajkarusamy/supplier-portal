@@ -67,7 +67,9 @@ export default function AdminReportsPage() {
     setSelectedType("")
     setSelectedSupplier("")
     setPartName("")
+    setPartName("")
     setEmailMessage("")
+  }
 
   const confirmDelete = () => {
     if (deleteId) {
