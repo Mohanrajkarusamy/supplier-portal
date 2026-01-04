@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { REPORT_TYPES, MOCK_REPORTS, Report } from "@/lib/reports"
-import { MOCK_USERS } from "@/lib/auth"
+import { getAllUsers } from "@/lib/auth"
 
 export default function AdminReportsPage() {
   const [reports, setReports] = useState<Report[]>(MOCK_REPORTS)
@@ -24,7 +24,8 @@ export default function AdminReportsPage() {
   const [emailMessage, setEmailMessage] = useState("")
   const [file, setFile] = useState<File | null>(null)
 
-  const suppliers = Object.values(MOCK_USERS).filter(u => u.role === "SUPPLIER")
+  const allUsers = getAllUsers()
+  const suppliers = Object.values(allUsers).filter(u => u.role === "SUPPLIER")
 
   // Delete State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -35,14 +36,13 @@ export default function AdminReportsPage() {
     setLoading(true)
     
     const supplierObj = suppliers.find(s => s.id === selectedSupplier)
-    const supplierName = supplierObj?.name || "Unknown"
     const supplierEmail = supplierObj?.email || "unknown@email.com"
 
     // Simulate upload
     setTimeout(() => {
       const newReport: Report = {
         id: Math.random().toString(36).substr(2, 9),
-        title: `${selectedType} - ${partName || supplierName}`,
+        title: `${selectedType} - ${partName || supplierObj?.name}`,
         type: selectedType,
         date: new Date().toISOString().split('T')[0],
         size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
@@ -50,7 +50,13 @@ export default function AdminReportsPage() {
       }
       setReports([newReport, ...reports])
       
-      alert(`REPORT PUBLISHED.\n\nSimulating Email to: ${supplierEmail}\nSubject: New Report Available: ${selectedType}\n\nMessage: "${emailMessage}"\n\nAttachment: ${file.name}`)
+      // Construct Mailto Link
+      const subject = encodeURIComponent(`New Report Available: ${selectedType}`)
+      const body = encodeURIComponent(`Hello,\n\nA new report (${selectedType}) has been published for your review.\n\nFile Name: ${file.name}\n\nMessage:\n${emailMessage}`)
+      const mailtoLink = `mailto:${supplierEmail}?subject=${subject}&body=${body}`
+
+      // Trigger Email Client
+      window.location.href = mailtoLink
 
       setLoading(false)
       setFile(null)
