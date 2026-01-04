@@ -37,6 +37,9 @@ export const sendEmail = async (
   }
 
   try {
+    // Get configured Admin Email if available
+    const adminEmail = typeof window !== 'undefined' ? localStorage.getItem('admin_email') : "admin@company.com";
+
     const templateParams = {
       to_name,
       to_email,
@@ -46,7 +49,8 @@ export const sendEmail = async (
       email: to_email,
       recipient: to_email,
       to: to_email,
-      reply_to: "admin@company.com", // Fallback or configured admin email
+      reply_to: adminEmail || "admin@company.com", 
+      from_name: "Supplier Portal System",
       ...additionalParams
     };
     
