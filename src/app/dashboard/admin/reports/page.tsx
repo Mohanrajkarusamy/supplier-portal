@@ -41,37 +41,33 @@ export default function AdminReportsPage() {
     const supplierObj = suppliers.find(s => s.id === selectedSupplier)
     const supplierEmail = supplierObj?.email || "unknown@email.com"
 
-    // Simulate upload
-    setTimeout(() => {
-      const newReport: Report = {
-        id: Math.random().toString(36).substr(2, 9),
-        title: `${selectedType} - ${partName || supplierObj?.name}`,
-        type: selectedType,
-        date: new Date().toISOString().split('T')[0],
-        size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-        status: "Published",
-        supplierId: selectedSupplier // Save for filtering
-      }
-      setReports([newReport, ...reports])
-      
-      // Construct Notification-only Email
-      const subject = encodeURIComponent(`New Secure Report Available: ${selectedType}`)
-      const body = encodeURIComponent(`Hello,\n\nA new confidential report (${selectedType}) has been uploaded to the Supplier Portal.\n\nPlease log in to the portal to view and download the document.\n\nNote: This document is securely stored on the portal and is not attached to this email.\n\nMessage:\n${emailMessage}`)
-      const mailtoLink = `mailto:${supplierEmail}?subject=${subject}&body=${body}`
+    // Secure upload - Instant (no timeout to prevent popup blockers)
+    const newReport: Report = {
+      id: Math.random().toString(36).substr(2, 9),
+      title: `${selectedType} - ${partName || supplierObj?.name}`,
+      type: selectedType,
+      date: new Date().toISOString().split('T')[0],
+      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+      status: "Published",
+      supplierId: selectedSupplier // Save for filtering
+    }
+    setReports([newReport, ...reports])
+    
+    // Construct Notification-only Email
+    const subject = encodeURIComponent(`New Secure Report Available: ${selectedType}`)
+    const body = encodeURIComponent(`Hello,\n\nA new confidential report (${selectedType}) has been uploaded to the Supplier Portal.\n\nPlease log in to the portal to view and download the document.\n\nNote: This document is securely stored on the portal and is not attached to this email.\n\nMessage:\n${emailMessage}`)
+    const mailtoLink = `mailto:${supplierEmail}?subject=${subject}&body=${body}`
 
-      // Trigger Email Client
-      window.location.href = mailtoLink
-      
-      // Removed manual attachment alert since we are now doing secure notification only
+    // Trigger Email Client
+    // Must be direct result of user action to avoid popup blockers
+    window.location.href = mailtoLink
 
-      setLoading(false)
-      setFile(null)
-      setSelectedType("")
-      setSelectedSupplier("")
-      setPartName("")
-      setEmailMessage("")
-    }, 1000)
-  }
+    setLoading(false)
+    setFile(null)
+    setSelectedType("")
+    setSelectedSupplier("")
+    setPartName("")
+    setEmailMessage("")
 
   const confirmDelete = () => {
     if (deleteId) {
