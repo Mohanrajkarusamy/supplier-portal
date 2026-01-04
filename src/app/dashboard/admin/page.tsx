@@ -48,8 +48,8 @@ export default function AdminDashboardPage() {
 
             setStats({
                 totalSuppliers: users.length,
-                preMachining: users.filter((s: any) => s.companyDetails?.category === "Pre-Machining" || s.category === "Pre-Machining").length,
-                childPart: users.filter((s: any) => s.companyDetails?.category === "Child-Part" || s.category === "Child-Part").length,
+                preMachining: users.filter((s: any) => (s.companyDetails?.category === "Pre-Machining" || s.category === "Pre-Machining") || (s.companyDetails?.category === "Pre Machining")).length,
+                childPart: users.filter((s: any) => (s.companyDetails?.category === "Child-Part" || s.category === "Child-Part")).length,
                 openIssues: Array.isArray(issues) ? issues.filter((i: any) => i.status === "Open").length : 0,
                 pendingApprovals: Array.isArray(documents) ? documents.filter((d: any) => d.status === "Pending").length : 0
             })
