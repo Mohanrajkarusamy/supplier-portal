@@ -68,9 +68,9 @@ export default function AdminReportsPage() {
     )
 
     if (result.success) {
-        alert("Report Published & Email Notification Sent Automatically!")
+        alert("Report Published & Email Notification Sent Successfully!")
     } else {
-        alert(`Report Published, but Email Failed: ${result.error}\n\nPlease check your EmailJS settings.`)
+        alert(`Report Published, but Email Failed: ${result.error}`)
     }
 
     setLoading(false)

@@ -98,13 +98,7 @@ export default function SuppliersPage() {
     if (result.success) {
         alert("Email sent successfully!")
     } else {
-        // Fallback or just notify failure
-        console.warn("Automation failed, falling back to manual or alerting user.", result.error)
-        alert(`Automatic sending failed: ${result.error}\n\nOpening your default email client instead...`)
-        
-        // Fallback to mailto
-        const mailtoLink = `mailto:${selectedSupplierEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`
-        window.location.href = mailtoLink
+        alert(`Failed to send email: ${result.error}`)
     }
 
     setEmailDialogOpen(false)
