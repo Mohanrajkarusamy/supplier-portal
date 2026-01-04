@@ -38,6 +38,7 @@ export default function AdminPerformancePage() {
   // Rejection State
   const [rejectionList, setRejectionList] = useState<{ reason: string, qty: string }[]>([{ reason: "", qty: "" }])
   
+  const [complaints, setComplaints] = useState("")
   const [complaintDetails, setComplaintDetails] = useState("")
   const [complaintFiles, setComplaintFiles] = useState<File[]>([])
   const [emailMessage, setEmailMessage] = useState("")
