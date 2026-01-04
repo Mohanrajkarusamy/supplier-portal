@@ -42,8 +42,15 @@ export const sendEmail = async (
       to_email,
       message,
       subject,
+      // Common variations to handle different user template setups
+      email: to_email,
+      recipient: to_email,
+      to: to_email,
+      reply_to: "admin@company.com", // Fallback or configured admin email
       ...additionalParams
     };
+    
+    console.log("EmailJS Sending with params:", templateParams);
 
     const response = await emailjs.send(
       config.serviceId,
