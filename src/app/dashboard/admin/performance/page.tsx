@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { MOCK_USERS } from "@/lib/auth"
+import { getAllUsers } from "@/lib/auth"
 import { MOCK_DAILY_LOGS, DailyLog } from "@/lib/performance"
 // Define interface locally to match usage
 interface Issue {
@@ -38,12 +38,28 @@ export default function AdminPerformancePage() {
   // Rejection State
   const [rejectionList, setRejectionList] = useState<{ reason: string, qty: string }[]>([{ reason: "", qty: "" }])
   
-  const [complaints, setComplaints] = useState("")
   const [complaintDetails, setComplaintDetails] = useState("")
   const [complaintFiles, setComplaintFiles] = useState<File[]>([])
   const [emailMessage, setEmailMessage] = useState("")
   
-  const suppliers = Object.values(MOCK_USERS).filter(u => u.role === "SUPPLIER")
+  const allUsers = getAllUsers()
+  const suppliers = Object.values(allUsers).filter(u => u.role === "SUPPLIER")
+
+  const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId)
+  
+  // Convert approvedParts to new structure if needed (handle legacy or new)
+  const approvedParts = selectedSupplier?.companyDetails?.approvedParts?.map(p => {
+      if (typeof p === 'string') return { name: p, partNumber: 'N/A' }
+      return p 
+  }) || []
+
+  const handlePartSelect = (pName: string) => {
+      setPartName(pName)
+      const part = approvedParts.find(p => p.name === pName)
+      if (part) {
+          setPartNumber(part.partNumber)
+      }
+  }
 
   const handleAddRejectionRow = () => {
     setRejectionList([...rejectionList, { reason: "", qty: "" }])
@@ -186,11 +202,31 @@ export default function AdminPerformancePage() {
                  <div className="grid grid-cols-2 gap-4">
                      <div className="space-y-2">
                          <Label>Part Name</Label>
-                         <Input value={partName} onChange={(e) => setPartName(e.target.value)} placeholder="e.g. Gear Shaft" />
+                         <Select value={partName} onValueChange={handlePartSelect} disabled={!selectedSupplierId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select Approved Part" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {approvedParts.length > 0 ? (
+                                    approvedParts.map((p, idx) => (
+                                        <SelectItem key={idx} value={p.name}>
+                                            {p.name}
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    <SelectItem value="none" disabled>No parts assigned</SelectItem>
+                                )}
+                            </SelectContent>
+                        </Select>
                      </div>
                      <div className="space-y-2">
                          <Label>Part Number</Label>
-                         <Input value={partNumber} onChange={(e) => setPartNumber(e.target.value)} placeholder="e.g. GS-500" />
+                         <Input 
+                            value={partNumber} 
+                            placeholder="Auto-filled" 
+                            disabled 
+                            className="bg-slate-100 text-slate-500"
+                        />
                      </div>
                  </div>
 
