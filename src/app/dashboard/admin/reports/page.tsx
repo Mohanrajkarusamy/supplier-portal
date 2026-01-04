@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { REPORT_TYPES, MOCK_REPORTS, Report } from "@/lib/reports"
 import { getAllUsers } from "@/lib/auth"
+import { sendEmail } from "@/lib/email"
 
 import { useLocalStorage } from "@/hooks/use-local-storage"
 
@@ -34,14 +35,16 @@ export default function AdminReportsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  const handleUpload = () => {
+
+
+  const handleUpload = async () => {
     if (!selectedType || !file || !selectedSupplier) return
     setLoading(true)
     
     const supplierObj = suppliers.find(s => s.id === selectedSupplier)
     const supplierEmail = supplierObj?.email || "unknown@email.com"
 
-    // Secure upload - Instant (no timeout to prevent popup blockers)
+    // Secure upload - Instant
     const newReport: Report = {
       id: Math.random().toString(36).substr(2, 9),
       title: `${selectedType} - ${partName || supplierObj?.name}`,
@@ -49,24 +52,31 @@ export default function AdminReportsPage() {
       date: new Date().toISOString().split('T')[0],
       size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
       status: "Published",
-      supplierId: selectedSupplier // Save for filtering
+      supplierId: selectedSupplier
     }
     setReports([newReport, ...reports])
     
-    // Construct Notification-only Email
-    const subject = encodeURIComponent(`New Secure Report Available: ${selectedType}`)
-    const body = encodeURIComponent(`Hello,\n\nA new confidential report (${selectedType}) has been uploaded to the Supplier Portal.\n\nPlease log in to the portal to view and download the document.\n\nNote: This document is securely stored on the portal and is not attached to this email.\n\nMessage:\n${emailMessage}`)
-    const mailtoLink = `mailto:${supplierEmail}?subject=${subject}&body=${body}`
+    // Send Automated Email via EmailJS
+    const subject = `New Secure Report Available: ${selectedType}`
+    const message = `Hello ${supplierObj?.name || 'Supplier'},\n\nA new confidential report (${selectedType}) has been uploaded to the Supplier Portal.\n\nPlease log in to the portal to view and download the document.\n\nNote: This document is securely stored on the portal.\n\nMessage:\n${emailMessage}`
+    
+    const result = await sendEmail(
+        supplierObj?.name || "Supplier",
+        supplierEmail,
+        message,
+        subject
+    )
 
-    // Trigger Email Client
-    // Must be direct result of user action to avoid popup blockers
-    window.location.href = mailtoLink
+    if (result.success) {
+        alert("Report Published & Email Notification Sent Automatically!")
+    } else {
+        alert(`Report Published, but Email Failed: ${result.error}\n\nPlease check your EmailJS settings.`)
+    }
 
     setLoading(false)
     setFile(null)
     setSelectedType("")
     setSelectedSupplier("")
-    setPartName("")
     setPartName("")
     setEmailMessage("")
   }

@@ -14,10 +14,18 @@ import { useLocalStorage } from "@/hooks/use-local-storage"
 export default function AdminSettingsPage() {
   const [ppmTargets, setPpmTargets] = useState(SYSTEM_SETTINGS.ppmTargets)
   const [adminEmail, setAdminEmail] = useLocalStorage("admin_email", "admin@company.com")
+  
+  // EmailJS Config
+  const [emailConfig, setEmailConfig] = useLocalStorage("emailjs_config", {
+      serviceId: "",
+      templateId: "",
+      publicKey: ""
+  })
 
   const handleSaveSettings = () => {
       updateSettings({ ppmTargets })
-      alert("Settings Updated!")
+      // Email config is auto-saved by useLocalStorage hooks, but we can simulate a global save
+      alert("Settings Updated! Email configuration saved.")
   }
   return (
     <div className="space-y-6">
@@ -98,7 +106,40 @@ export default function AdminSettingsPage() {
                   <CardDescription>Global settings for the Supplier Portal.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                 {/* EmailJS Configuration */}
+                 <div className="space-y-4 border p-4 rounded-md bg-slate-50">
+                    <h4 className="font-semibold text-sm">Automatic Email Service (EmailJS)</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                             <Label>Service ID</Label>
+                             <Input 
+                                placeholder="service_xxxxxx" 
+                                value={emailConfig.serviceId} 
+                                onChange={(e) => setEmailConfig({...emailConfig, serviceId: e.target.value})}
+                             />
+                        </div>
+                        <div className="space-y-2">
+                             <Label>Template ID</Label>
+                             <Input 
+                                placeholder="template_xxxxxx" 
+                                value={emailConfig.templateId} 
+                                onChange={(e) => setEmailConfig({...emailConfig, templateId: e.target.value})}
+                             />
+                        </div>
+                        <div className="space-y-2">
+                             <Label>Public Key</Label>
+                             <Input 
+                                placeholder="User ID / Public Key" 
+                                type="password"
+                                value={emailConfig.publicKey} 
+                                onChange={(e) => setEmailConfig({...emailConfig, publicKey: e.target.value})}
+                             />
+                        </div>
+                    </div>
+                 </div>
+
                   <div className="space-y-2">
+
                       <Label>Admin Notification Email</Label>
                       <Input 
                           value={adminEmail} 

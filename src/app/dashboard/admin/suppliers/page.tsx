@@ -16,6 +16,7 @@ import Link from "next/link"
 
 import { MOCK_USERS } from "@/lib/auth"
 import { useLocalStorage } from "@/hooks/use-local-storage"
+import { sendEmail } from "@/lib/email"
 
 export default function SuppliersPage() {
   // Initialize from global mock data or local storage if available
@@ -81,14 +82,30 @@ export default function SuppliersPage() {
       setEmailDialogOpen(true)
   }
 
-  const handleSendEmail = () => {
-    // Construct Mailto Link
-    const subject = encodeURIComponent(emailSubject)
-    const body = encodeURIComponent(emailMessage)
-    const mailtoLink = `mailto:${selectedSupplierEmail}?subject=${subject}&body=${body}`
+  const handleSendEmail = async () => {
+    // Construct Email Content
+    const subject = emailSubject
+    const message = emailMessage
+    
+    // Attempt Automation
+    const result = await sendEmail(
+        selectedSupplierName,
+        selectedSupplierEmail,
+        message,
+        subject
+    )
 
-    // Trigger Email Client
-    window.location.href = mailtoLink
+    if (result.success) {
+        alert("Email sent successfully!")
+    } else {
+        // Fallback or just notify failure
+        console.warn("Automation failed, falling back to manual or alerting user.", result.error)
+        alert(`Automatic sending failed: ${result.error}\n\nOpening your default email client instead...`)
+        
+        // Fallback to mailto
+        const mailtoLink = `mailto:${selectedSupplierEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`
+        window.location.href = mailtoLink
+    }
 
     setEmailDialogOpen(false)
     setEmailSubject("")
