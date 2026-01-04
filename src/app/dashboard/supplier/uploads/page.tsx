@@ -9,10 +9,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
+import { useLocalStorage } from "@/hooks/use-local-storage"
+import { sendEmail } from "@/lib/email"
+
 export default function SupplierUploadsPage() {
     // In a real app, we would filter by the logged-in supplier ID
     const currentSupplierId = "SUP001" 
     const supplierName = "Alpha Castings" // Mock name
+
+    const [adminEmail] = useLocalStorage("admin_email", "admin@company.com")
 
     const [uploads, setUploads] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -60,13 +65,22 @@ export default function SupplierUploadsPage() {
                 // Update Store
                 fetchUploads()
                 
+                // Notify Admin via Email
+                console.log("Notifying Admin:", adminEmail)
+                const subject = `New Document Uploaded: ${type}`
+                const message = `Supplier: ${supplierName} (${currentSupplierId})\nDocument Type: ${type}\nPart Reference: ${partName || "General"}\nDate: ${new Date().toISOString().split('T')[0]}\n\nPlease review this submission in the Admin Dashboard.`
+                
+                // We don't await this to keep UI responsive, or we can toast success
+                sendEmail("Admin", adminEmail, message, subject).then(emailRes => {
+                    if(!emailRes.success) console.warn("Admin Notification Failed:", emailRes.error)
+                })
+
                 // Reset Form
                 setType("")
                 setPartName("")
                 setSelectedFile(null)
-                // Clear file input manually if needed or just let react state handle it if controlled
-                // Uncontrolled file input is tricky to clear, but we'll focus on functionality
-                alert("Document Uploaded Successfully!")
+                
+                alert("Document Uploaded Successfully! Admin has been notified.")
             } else {
                 alert("Upload failed")
             }
