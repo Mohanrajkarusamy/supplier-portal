@@ -150,6 +150,48 @@ export default function AdminSettingsPage() {
                              />
                         </div>
                     </div>
+
+                    {/* Test Connection Section */}
+                    <div className="pt-4 border-t mt-4">
+                        <Label>Test Connection</Label>
+                        <div className="flex gap-2 mt-2">
+                            <Input 
+                                placeholder="Enter your email to test..." 
+                                id="test-email"
+                            />
+                            <Button variant="secondary" onClick={async () => {
+                                const testEmail = (document.getElementById('test-email') as HTMLInputElement).value;
+                                if(!testEmail) { alert("Please enter an email address."); return; }
+                                if(!emailConfig.serviceId || !emailConfig.templateId || !emailConfig.publicKey) {
+                                    alert("Please enter Service ID, Template ID and Public Key first."); return;
+                                }
+
+                                try {
+                                    const emailjs = (await import('@emailjs/browser')).default;
+                                    alert("Sending Test Email...");
+                                    const res = await emailjs.send(
+                                        emailConfig.serviceId,
+                                        emailConfig.templateId,
+                                        {
+                                            to_name: "Admin (Test)",
+                                            to_email: testEmail,
+                                            subject: "Test Email from Supplier Portal",
+                                            message: "If you are reading this, your EmailJS configuration is CORRECT! \n\nVariables Check:\n- to_name: OK\n- to_email: OK\n- subject: OK\n- message: OK"
+                                        },
+                                        emailConfig.publicKey
+                                    );
+                                    if(res.status === 200) alert(`Success! Email sent to ${testEmail}. \n\nIf you don't see it, check SPAM folder.`);
+                                } catch (e: any) {
+                                    alert(`Connection Failed: ${e.text || e.message || "Unknown Error"}. \n\nDouble check your keys.`);
+                                }
+                            }}>
+                                Send Test Email
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Click this to verify your keys work before saving.
+                        </p>
+                    </div>
                  </div>
 
                   <div className="space-y-2">
