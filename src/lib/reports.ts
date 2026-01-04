@@ -1,10 +1,10 @@
-export interface Report {
   id: string
   title: string
   type: string
   date: string
   size: string
   status: "Published" | "Draft"
+  supplierId?: string // Added for filtering
 }
 
 export const MOCK_REPORTS: Report[] = [

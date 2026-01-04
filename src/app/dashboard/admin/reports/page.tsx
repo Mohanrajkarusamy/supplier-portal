@@ -13,8 +13,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { REPORT_TYPES, MOCK_REPORTS, Report } from "@/lib/reports"
 import { getAllUsers } from "@/lib/auth"
 
+import { useLocalStorage } from "@/hooks/use-local-storage"
+
 export default function AdminReportsPage() {
-  const [reports, setReports] = useState<Report[]>(MOCK_REPORTS)
+  // Use LocalStorage for persistence
+  const [reports, setReports] = useLocalStorage<Report[]>("portal_reports", MOCK_REPORTS)
   const [loading, setLoading] = useState(false)
 
   // Form State
@@ -46,20 +49,20 @@ export default function AdminReportsPage() {
         type: selectedType,
         date: new Date().toISOString().split('T')[0],
         size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-        status: "Published"
+        status: "Published",
+        supplierId: selectedSupplier // Save for filtering
       }
       setReports([newReport, ...reports])
       
-      // Construct Mailto Link
-      const subject = encodeURIComponent(`New Report Available: ${selectedType}`)
-      const body = encodeURIComponent(`Hello,\n\nA new report (${selectedType}) has been published for your review.\n\nFile Name: ${file.name}\n\nMessage:\n${emailMessage}`)
+      // Construct Notification-only Email
+      const subject = encodeURIComponent(`New Secure Report Available: ${selectedType}`)
+      const body = encodeURIComponent(`Hello,\n\nA new confidential report (${selectedType}) has been uploaded to the Supplier Portal.\n\nPlease log in to the portal to view and download the document.\n\nNote: This document is securely stored on the portal and is not attached to this email.\n\nMessage:\n${emailMessage}`)
       const mailtoLink = `mailto:${supplierEmail}?subject=${subject}&body=${body}`
-
-      // Inform user about manual attachment requirement
-      alert(`Opening your email client...\n\nIMPORTANT: Please manually attach the file "${file.name}" to the email before sending.\n\n(Browsers cannot auto-attach files for security reasons)`)
 
       // Trigger Email Client
       window.location.href = mailtoLink
+      
+      // Removed manual attachment alert since we are now doing secure notification only
 
       setLoading(false)
       setFile(null)
