@@ -68,7 +68,11 @@ export default function AdminReportsPage() {
     )
 
     if (result.success) {
-        alert("Report Published & Email Notification Sent Successfully!")
+        if (result.isSimulation) {
+            alert(`[SIMULATION MODE]\n\nReport Published Successfully.\n\nNOTE: No real email was sent (Missing API Keys).\nThe app pretended to send to: ${supplierEmail}`)
+        } else {
+            alert(`Report Published & Real Email Sent to ${supplierEmail}!`)
+        }
     } else {
         alert(`Report Published, but Email Failed: ${result.error}`)
     }

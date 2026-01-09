@@ -23,7 +23,7 @@ export const sendEmail = async (
   message: string,
   subject: string,
   additionalParams: Record<string, any> = {}
-): Promise<{ success: boolean; error?: string }> => {
+): Promise<{ success: boolean; error?: string; isSimulation?: boolean }> => {
   const config = getEmailConfig();
 
   if (!config || !config.serviceId || !config.templateId || !config.publicKey) {
@@ -33,7 +33,7 @@ export const sendEmail = async (
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    return { success: true }; // Treat as success for demo purposes
+    return { success: true, isSimulation: true }; // Treat as success for demo purposes
   }
 
   try {
@@ -64,7 +64,7 @@ export const sendEmail = async (
     );
 
     if (response.status === 200) {
-      return { success: true };
+      return { success: true, isSimulation: false };
     } else {
       return { success: false, error: `EmailJS Error: ${response.text}` };
     }
