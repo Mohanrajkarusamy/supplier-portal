@@ -195,8 +195,16 @@ export default function AdminSettingsPage() {
 
                     {/* Email Debug Logs */}
                     <div className="pt-4 border-t mt-4">
-                        <Label>Recent Email Activity (Debug Log)</Label>
-                        <div className="bg-black text-green-400 p-3 rounded-md mt-2 text-xs font-mono h-32 overflow-y-auto whitespace-pre-wrap">
+                        <div className="flex items-center justify-between">
+                            <Label>Recent Email Activity (Debug Log)</Label>
+                            <a href="https://dashboard.emailjs.com/admin/history" target="_blank" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                                Check EmailJS Dashboard <span className="text-[10px]">↗</span>
+                            </a>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1 mb-2">
+                            If status is SUCCESS but no email arrived, check your <b>Spam Folder</b> or the <b>EmailJS Dashboard</b> above.
+                        </p>
+                        <div className="bg-black text-green-400 p-3 rounded-md text-xs font-mono h-32 overflow-y-auto whitespace-pre-wrap">
                             {(() => {
                                 if (typeof window === 'undefined') return "Loading logs...";
                                 try {
