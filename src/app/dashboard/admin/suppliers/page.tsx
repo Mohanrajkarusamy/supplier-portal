@@ -137,7 +137,25 @@ export default function SuppliersPage() {
     
     setOpen(false)
     resetForm()
-    alert(`Supplier Created: ${name} (ID: ${supplierId})\n\nSimulating Email from ${adminEmail} to ${email}:\n"Subject: Welcome to Supplier Portal\nPlease register using your User ID: ${supplierId} at the activation page."`)
+
+    // 1. Send Welcome Email
+    sendEmail(
+        name,
+        email,
+        `Welcome to the Supplier Portal!\n\nYour Supplier ID is: ${supplierId}\n\nPlease use this ID to register and access your dashboard.`,
+        "Welcome to Supplier Portal - Registration Details"
+    ).then(res => {
+        if(!res.success) console.warn("Welcome Email Failed:", res.error)
+    });
+
+    // 2. Send SMS Notification
+    import("@/lib/sms").then(({ sendSMS }) => {
+        sendSMS(phone, `Welcome to Supplier Portal! Your Supplier ID is: ${supplierId}. Check email for details.`).then(res => {
+            console.log("SMS Result:", res.message)
+        })
+    })
+
+    alert(`Supplier Created: ${name} (ID: ${supplierId})\n\nNotifications sent to:\nEmail: ${email}\nPhone: ${phone}`)
   }
 
   const handleUpdateSupplier = () => {
