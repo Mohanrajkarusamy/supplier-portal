@@ -71,7 +71,7 @@ export default function SupplierUploadsPage() {
                 const message = `Supplier: ${supplierName} (${currentSupplierId})\nDocument Type: ${type}\nPart Reference: ${partName || "General"}\nDate: ${new Date().toISOString().split('T')[0]}\n\nPlease review this submission in the Admin Dashboard.`
                 
                 // We don't await this to keep UI responsive, or we can toast success
-                sendEmail("Admin", adminEmail, message, subject).then(emailRes => {
+                sendEmail("Admin", adminEmail, message, subject, { from_name: `Supplier: ${supplierName}` }).then(emailRes => {
                     if(!emailRes.success) console.warn("Admin Notification Failed:", emailRes.error)
                 })
 
