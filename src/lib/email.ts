@@ -64,12 +64,32 @@ export const sendEmail = async (
     );
 
     if (response.status === 200) {
+      logEmailAttempt(to_email, subject, "SUCCESS");
       return { success: true, isSimulation: false };
     } else {
+      logEmailAttempt(to_email, subject, `FAILED: ${response.text}`);
       return { success: false, error: `EmailJS Error: ${response.text}` };
     }
   } catch (error: any) {
     console.error("Failed to send email:", error);
+    logEmailAttempt(to_email, subject, `ERROR: ${error.text || error.message}`);
     return { success: false, error: error.text || error.message || "Unknown error occurred" };
   }
 };
+
+const logEmailAttempt = (to: string, subject: string, status: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+        const logs = JSON.parse(localStorage.getItem('email_logs') || '[]');
+        const newLog = {
+            time: new Date().toLocaleString(),
+            to,
+            subject,
+            status
+        };
+        const updatedLogs = [newLog, ...logs].slice(0, 10); // Keep last 10
+        localStorage.setItem('email_logs', JSON.stringify(updatedLogs));
+    } catch (e) {
+        console.error("Failed to save email log", e);
+    }
+}

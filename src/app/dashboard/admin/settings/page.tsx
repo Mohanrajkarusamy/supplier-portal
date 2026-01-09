@@ -192,6 +192,27 @@ export default function AdminSettingsPage() {
                             Click this to verify your keys work before saving.
                         </p>
                     </div>
+
+                    {/* Email Debug Logs */}
+                    <div className="pt-4 border-t mt-4">
+                        <Label>Recent Email Activity (Debug Log)</Label>
+                        <div className="bg-black text-green-400 p-3 rounded-md mt-2 text-xs font-mono h-32 overflow-y-auto whitespace-pre-wrap">
+                            {(() => {
+                                if (typeof window === 'undefined') return "Loading logs...";
+                                try {
+                                    const logs = JSON.parse(localStorage.getItem('email_logs') || '[]');
+                                    if (logs.length === 0) return "No email attempts recorded yet.";
+                                    return logs.map((log: any, i: number) => 
+                                        `[${log.time}] ${log.status}\nTo: ${log.to}\nSub: ${log.subject}\n-------------------`
+                                    ).join('\n');
+                                } catch (e) { return "Error reading logs."; }
+                            })()}
+                        </div>
+                         <Button variant="outline" size="sm" className="mt-2 text-xs" onClick={() => {
+                            localStorage.removeItem('email_logs');
+                            window.location.reload();
+                        }}>Clear Logs</Button>
+                    </div>
                  </div>
 
                   <div className="space-y-2">
