@@ -174,8 +174,20 @@ export default function AdminPerformanceLogsPage() {
       }
       
       const supplier = suppliers.find(s => s.id === log.supplierId)
-      const part = supplier?.companyDetails?.approvedParts?.find((p: any) => p.partNumber === log.partNumber)
-      const dailyTarget = part ? ((part.monthlyRequirement || 0) / 25) : (log.plannedQty || 0)
+      const part = supplier?.companyDetails?.approvedParts?.find((p: any) => (p.partNumber || "").trim() === (log.partNumber || "").trim())
+      
+      let dailyTarget = 0;
+      if (part) {
+        if (part.shiftTargets) {
+          dailyTarget = Number(part.shiftTargets.shiftA || 0) + Number(part.shiftTargets.shiftB || 0) + Number(part.shiftTargets.shiftC || 0);
+        }
+        if (dailyTarget === 0 && part.monthlyRequirement) {
+          dailyTarget = Math.round(part.monthlyRequirement / 25);
+        }
+      }
+      if (dailyTarget === 0) {
+        dailyTarget = log.plannedQty || 0;
+      }
       
       existing.plannedQty += dailyTarget
       existing.production += (log.production || 0)
@@ -344,8 +356,23 @@ export default function AdminPerformanceLogsPage() {
                                    <TableCell className="font-mono text-xs py-3">{row.date}</TableCell>
                                    <TableCell className="font-bold text-slate-700">{getSupplierName(row.supplierId)}</TableCell>
                                    <TableCell className="font-mono text-xs">{row.partNumber}</TableCell>
-                                   <TableCell className="font-semibold text-blue-600">{row.plannedQty || 0}</TableCell>
-                                   <TableCell className="font-semibold text-orange-600">+{row.castingIssued || 0}</TableCell>
+                                    <TableCell className="font-semibold text-blue-600">
+                                        {(() => {
+                                            const supplier = suppliers.find(s => s.id === row.supplierId);
+                                            const part = supplier?.companyDetails?.approvedParts?.find((p: any) => (p.partNumber || "").trim() === (row.partNumber || "").trim());
+                                            let target = 0;
+                                            if (part) {
+                                                if (part.shiftTargets) {
+                                                    target = Number(part.shiftTargets.shiftA || 0) + Number(part.shiftTargets.shiftB || 0) + Number(part.shiftTargets.shiftC || 0);
+                                                }
+                                                if (target === 0 && part.monthlyRequirement) {
+                                                    target = Math.round(part.monthlyRequirement / 25);
+                                                }
+                                            }
+                                            return target || row.plannedQty || 0;
+                                        })()}
+                                    </TableCell>
+                                    <TableCell className="font-semibold text-orange-600">+{row.castingIssued || 0}</TableCell>
                                    <TableCell className="font-semibold text-slate-800">{row.dispatch || 0}</TableCell>
                                    <TableCell className={cn(row.rejection > 0 ? "text-red-600 font-semibold" : "text-slate-600")}>
                                        {row.rejection || 0}
