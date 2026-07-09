@@ -69,13 +69,32 @@ export async function POST(request: Request) {
     let finalClosingStock = 0;
 
     if (record) {
-      // Merge values to prevent overwriting positive values with default zeros
-      const mergedCasting = (body.castingIssued !== undefined && Number(castingIssued) > 0) ? Number(castingIssued) : (record.castingIssued || 0);
-      const mergedProduction = (body.production !== undefined && Number(production) > 0) ? Number(production) : (record.production || 0);
-      const mergedRejection = (body.rejection !== undefined && Number(rejection) > 0) ? Number(rejection) : (record.rejection || 0);
-      const mergedDispatch = (body.dispatch !== undefined && Number(dispatch) > 0) ? Number(dispatch) : (record.dispatch || 0);
-      const mergedPlannedQty = (body.plannedQty !== undefined && Number(plannedQty) > 0) ? Number(plannedQty) : (record.plannedQty || 0);
-      const mergedOpening = (body.openingStock !== undefined && Number(openingStock) > 0) ? Number(openingStock) : (record.openingStock || 0);
+      // Merge values based on entryType to prevent loss of data and support zero overrides
+      let mergedCasting = record.castingIssued || 0;
+      let mergedProduction = record.production || 0;
+      let mergedRejection = record.rejection || 0;
+      let mergedDispatch = record.dispatch || 0;
+      let mergedPlannedQty = record.plannedQty || 0;
+      let mergedOpening = record.openingStock || 0;
+
+      if (body.entryType === "Inventory") {
+        mergedCasting = Number(castingIssued);
+        mergedOpening = Number(openingStock);
+      } else if (body.entryType === "Performance") {
+        mergedProduction = Number(production);
+        mergedRejection = Number(rejection);
+        mergedDispatch = Number(dispatch);
+        mergedPlannedQty = Number(plannedQty);
+      } else {
+        // Fallback for supplier submissions or direct API calls
+        mergedCasting = (body.castingIssued !== undefined && Number(castingIssued) > 0) ? Number(castingIssued) : (record.castingIssued || 0);
+        mergedProduction = (body.production !== undefined && Number(production) > 0) ? Number(production) : (record.production || 0);
+        mergedRejection = (body.rejection !== undefined && Number(rejection) > 0) ? Number(rejection) : (record.rejection || 0);
+        mergedDispatch = (body.dispatch !== undefined && Number(dispatch) > 0) ? Number(dispatch) : (record.dispatch || 0);
+        mergedPlannedQty = (body.plannedQty !== undefined && Number(plannedQty) > 0) ? Number(plannedQty) : (record.plannedQty || 0);
+        mergedOpening = (body.openingStock !== undefined && Number(openingStock) > 0) ? Number(openingStock) : (record.openingStock || 0);
+      }
+
       const mergedRemarks = (remarks && remarks !== record.remarks) ? (record.remarks ? `${record.remarks}, ${remarks}` : remarks) : record.remarks;
       const mergedReason = shortageReason || record.shortageReason;
 

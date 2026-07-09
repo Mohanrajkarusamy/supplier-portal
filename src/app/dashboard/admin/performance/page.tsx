@@ -134,7 +134,8 @@ export default function AdminPerformancePage() {
             shift: "N/A",
             date: entryDate,
             remarks: rejectionSummary || (entryType === "Inventory" ? "Inventory adjustment" : "Daily performance log"),
-            enteredBy: "Admin"
+            enteredBy: "Admin",
+            entryType
         }
 
         if (entryType === "Inventory") {
