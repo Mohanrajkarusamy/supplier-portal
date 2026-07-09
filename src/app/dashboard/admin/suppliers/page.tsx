@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, Building2, Phone, Mail, MoreHorizontal, Trash2, Download } from "lucide-react"
+import { Plus, Search, Building2, Phone, Mail, MoreHorizontal, Trash2, Download, Pencil } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,31 +14,39 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 
-import { MOCK_USERS } from "@/lib/auth"
+import { manualActivateUser } from "@/lib/auth"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { sendEmail } from "@/lib/email"
 
 export default function SuppliersPage() {
-  // Initialize from global mock data or local storage if available
-  // We want to persist added suppliers in local storage for the demo session
-  const initialSuppliers = Object.values(MOCK_USERS)
-      .filter(u => u.role === "SUPPLIER")
-      .map(u => ({
-          id: u.id,
-          name: u.name,
-          category: u.companyDetails?.category || "Unknown",
-          email: u.email || "",
-          phone: u.phone || "",
-          status: "Active",
-          approvedParts: u.companyDetails?.approvedParts || []
-      }))
-
-  const [suppliers, setSuppliers] = useLocalStorage<any[]>("demo_suppliers", initialSuppliers) 
-  
+  const [suppliers, setSuppliers] = useState<any[]>([]) 
   const [loading, setLoading] = useState(false)
 
-  // No fetch needed as we rely on useLocalStorage sync
-  // const fetchSuppliers = ... 
+  const fetchSuppliers = async () => {
+      try {
+          const res = await fetch('/api/suppliers');
+          const data = await res.json();
+          if (Array.isArray(data)) {
+              const mapped = data.map((u: any) => ({
+                  id: u.id,
+                  name: u.name,
+                  category: u.category || u.companyDetails?.category || "Unknown",
+                  email: u.email || "",
+                  phone: u.phone || "",
+                  status: u.status,
+                  approvedParts: u.companyDetails?.approvedParts || [],
+                  companyDetails: u.companyDetails
+              }));
+              setSuppliers(mapped);
+          }
+      } catch (err) {
+          console.error("Failed to fetch suppliers", err);
+      }
+  }
+
+  useEffect(() => {
+      fetchSuppliers();
+  }, []);
 
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
@@ -50,11 +58,79 @@ export default function SuppliersPage() {
   const [operation, setOperation] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
+  const [contactPerson, setContactPerson] = useState("")
+  const [address, setAddress] = useState("")
+  const [gstNumber, setGstNumber] = useState("")
+  const [panNumber, setPanNumber] = useState("")
   
   // New State for Structured Parts
-  const [partsList, setPartsList] = useState<{ name: string; partNumber: string }[]>([])
+  const [partsList, setPartsList] = useState<any[]>([])
   const [newPartName, setNewPartName] = useState("")
   const [newPartNumber, setNewPartNumber] = useState("")
+  const [newPartLine, setNewPartLine] = useState("")
+  const [newPartReq, setNewPartReq] = useState("")
+  const [newPartSafety, setNewPartSafety] = useState("")
+  const [newPartShiftScheme, setNewPartShiftScheme] = useState("3-shifts")
+  const [newPartTargetShiftA, setNewPartTargetShiftA] = useState("")
+  const [newPartTargetShiftB, setNewPartTargetShiftB] = useState("")
+  const [newPartTargetShiftC, setNewPartTargetShiftC] = useState("")
+  const [newPartProductCode, setNewPartProductCode] = useState("")
+  const [newPartDebitAllowance, setNewPartDebitAllowance] = useState("")
+  const [editingPartIndex, setEditingPartIndex] = useState<number | null>(null)
+
+  // State for Opening Stock Dialog
+  const [openingStockDialogOpen, setOpeningStockDialogOpen] = useState(false)
+  const [selectedSupplierForStock, setSelectedSupplierForStock] = useState<any>(null)
+  const [selectedPartForStock, setSelectedPartForStock] = useState("")
+  const [stockDate, setStockDate] = useState("")
+  const [openingStockValue, setOpeningStockValue] = useState("")
+
+  const handleOpenOpeningStockDialog = (supplier: any) => {
+      setSelectedSupplierForStock(supplier)
+      if (supplier.approvedParts && supplier.approvedParts.length > 0) {
+          setSelectedPartForStock(supplier.approvedParts[0].partNumber)
+      } else {
+          setSelectedPartForStock("")
+      }
+      setStockDate(new Date().toISOString().substring(0, 7) + "-01") // First of current month
+      setOpeningStockValue("")
+      setOpeningStockDialogOpen(true)
+  }
+
+  const handleSaveOpeningStock = async () => {
+      if (!selectedSupplierForStock || !selectedPartForStock || !stockDate || !openingStockValue) {
+          alert("Please fill in all opening stock fields.")
+          return
+      }
+      
+      const part = selectedSupplierForStock.approvedParts.find((p: any) => p.partNumber === selectedPartForStock)
+
+      try {
+          const res = await fetch('/api/production', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  supplierId: selectedSupplierForStock.id,
+                  partNumber: selectedPartForStock,
+                  productionLine: part?.productionLine || "Line-1",
+                  date: stockDate,
+                  openingStock: Number(openingStockValue),
+                  isOpeningStockRecord: true
+              })
+          })
+
+          const result = await res.json()
+          if (result.success) {
+              alert("Monthly Opening Stock saved successfully.")
+              setOpeningStockDialogOpen(false)
+          } else {
+              alert(`Failed to save: ${result.message}`)
+          }
+      } catch (err) {
+          console.error(err)
+          alert("An error occurred while saving opening stock.")
+      }
+  }
 
   // Delete Flow State
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -105,80 +181,110 @@ export default function SuppliersPage() {
     setEmailSubject("")
     setEmailMessage("")
   }
+
+  const handleActivateSupplier = async (id: string) => {
+      const res = await manualActivateUser(id)
+      if (res.success) {
+          await fetchSuppliers()
+          alert(`Supplier ${id} activated successfully.`)
+      } else {
+          alert(res.message || "Failed to activate supplier.")
+      }
+  }
   
-  const handleAddSupplier = () => {
+  const handleAddSupplier = async () => {
     if (isEditing) {
         handleUpdateSupplier()
         return
     }
 
-    if (suppliers.some(s => s.id === supplierId)) {
-        alert("Supplier ID already exists! Please use a unique ID.")
-        return
+    setLoading(true)
+    try {
+        const response = await fetch('/api/suppliers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: supplierId,
+                name,
+                category,
+                email,
+                phone,
+                contactPerson,
+                address,
+                gstNumber,
+                panNumber,
+                companyDetails: { 
+                    operationType: operation,
+                    approvedParts: partsList
+                }
+            })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            await fetchSuppliers();
+            setOpen(false)
+            
+            // Send welcome email if EmailJS is configured
+            const emailSubject = "Welcome to SAKTHI Partner Hub - Account Activation";
+            const emailMessage = `Dear ${name},\n\nYou have been registered as a supplier on the SAKTHI Partner Hub.\n\nHere are your access credentials:\n- **Supplier ID / User ID**: ${result.supplier.id}\n- **Temporary Password**: ${result._debug_tempPassword}\n\nPlease activate your account by visiting the portal at https://supplier-portal-kappa.vercel.app/auth/login and selecting 'Activate Account' to set your permanent password.\n\nBest regards,\nSAKTHI AUTO COMPONENTS LIMITED`;
+            
+            const emailRes = await sendEmail(name, email, emailMessage, emailSubject);
+            resetForm()
+            
+            if (emailRes.success && !emailRes.isSimulation) {
+                alert(`Supplier Created Successfully!\nID: ${result.supplier.id}\nTemp Password: ${result._debug_tempPassword}\n\nWelcome email sent to ${email} successfully!`);
+            } else {
+                alert(`Supplier Created Successfully!\nID: ${result.supplier.id}\nTemp Password: ${result._debug_tempPassword}\n\n(SMS simulated. Setup EmailJS in settings to send real welcome emails.)`);
+            }
+        } else {
+            alert(`Failed: ${result.message}`);
+        }
+    } catch (error) {
+        console.error("Creation failed", error);
+        alert("An error occurred during creation.");
+    } finally {
+        setLoading(false)
     }
-
-    const newSupplier = {
-      id: supplierId,
-      name,
-      category,
-      role: "SUPPLIER",
-      email,
-      phone,
-      status: "Pending Activation",
-      approvedParts: partsList,
-      companyDetails: { 
-          category,
-          approvedParts: partsList
-      }
-    }
-
-    // Direct state update instead of API call
-    setSuppliers([...suppliers, newSupplier])
-    
-    setOpen(false)
-    resetForm()
-
-    // 1. Send Welcome Email
-    sendEmail(
-        name,
-        email,
-        `Welcome to the Supplier Portal!\n\nYour Supplier ID is: ${supplierId}\n\nPlease use this ID to register and access your dashboard.`,
-        "Welcome to Supplier Portal - Registration Details"
-    ).then(res => {
-        if(!res.success) console.warn("Welcome Email Failed:", res.error)
-    });
-
-    // 2. Send SMS Notification
-    import("@/lib/sms").then(({ sendSMS }) => {
-        sendSMS(phone, `Welcome to Supplier Portal! Your Supplier ID is: ${supplierId}. Check email for details.`).then(res => {
-            console.log("SMS Result:", res.message)
-        })
-    })
-
-    alert(`Supplier Created: ${name} (ID: ${supplierId})\n\nNotifications sent to:\nEmail: ${email}\nPhone: ${phone}`)
   }
 
-  const handleUpdateSupplier = () => {
-      const updatedList = suppliers.map(s => {
-          if (s.id === supplierId) {
-             return {
-                 ...s,
-                 name,
-                 companyDetails: {
-                    ...s.companyDetails,
-                    category,
-                    approvedParts: partsList
-                 },
-                 email,
-                 phone,
-             }
+  const handleUpdateSupplier = async () => {
+      setLoading(true)
+      try {
+          const response = await fetch('/api/suppliers', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  id: supplierId,
+                  name,
+                  category,
+                  email,
+                  phone,
+                  contactPerson,
+                  address,
+                  gstNumber,
+                  panNumber,
+                  companyDetails: {
+                      operationType: operation,
+                      approvedParts: partsList
+                  }
+              })
+          });
+          const result = await response.json();
+          if (result.success) {
+              await fetchSuppliers();
+              setOpen(false)
+              resetForm()
+              alert("Supplier details updated successfully.");
+          } else {
+              alert(`Update failed: ${result.message}`);
           }
-          return s
-      })
-
-      setSuppliers(updatedList)
-      setOpen(false)
-      resetForm()
+      } catch (err) {
+          console.error(err);
+          alert("An error occurred during update.");
+      } finally {
+          setLoading(false);
+      }
   }
 
   const handleEditClick = (supplier: any) => {
@@ -189,12 +295,16 @@ export default function SuppliersPage() {
       setCategory(supplier.category || supplier.companyDetails?.category)
       setEmail(supplier.email)
       setPhone(supplier.phone)
+      setContactPerson(supplier.contactPerson || "")
+      setAddress(supplier.address || "")
+      setGstNumber(supplier.gstNumber || "")
+      setPanNumber(supplier.panNumber || "")
       
       const parts = supplier.approvedParts || supplier.companyDetails?.approvedParts || []
       setPartsList(parts)
        // setApprovedPartsText(parts.join(", ")) - removed
        
-      setOperation("") 
+      setOperation(supplier.companyDetails?.operationType || "") 
       setOpen(true)
   }
 
@@ -204,15 +314,28 @@ export default function SuppliersPage() {
       setDeleteDialogOpen(true)
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
       if (!supplierToDelete) return
-      
-      const updatedList = suppliers.filter(s => s.id !== supplierToDelete)
-      setSuppliers(updatedList)
-      
-      console.log(`Supplier ${supplierToDelete} deleted. Reason: ${deleteReason}`)
-      setDeleteDialogOpen(false)
-      setSupplierToDelete(null)
+      setLoading(true)
+      try {
+          const response = await fetch(`/api/suppliers?id=${supplierToDelete}`, {
+              method: 'DELETE'
+          });
+          const result = await response.json();
+          if (result.success) {
+              await fetchSuppliers();
+              alert(`Supplier ${supplierToDelete} deleted successfully.`);
+          } else {
+              alert(`Delete failed: ${result.message}`);
+          }
+      } catch (err) {
+          console.error(err);
+          alert("An error occurred during deletion.");
+      } finally {
+          setLoading(false);
+          setDeleteDialogOpen(false);
+          setSupplierToDelete(null);
+      }
   }
 
   const resetForm = () => {
@@ -223,27 +346,132 @@ export default function SuppliersPage() {
     setOperation("")
     setEmail("")
     setPhone("")
-    setEmail("")
-    setPhone("")
-    // setApprovedPartsText("")
+    setContactPerson("")
+    setAddress("")
+    setGstNumber("")
+    setPanNumber("")
     setPartsList([])
     setNewPartName("")
     setNewPartNumber("")
+    setNewPartLine("")
+    setNewPartProductCode("")
+    setNewPartDebitAllowance("")
+    setNewPartReq("")
+    setNewPartSafety("")
+    setNewPartShiftScheme("3-shifts")
+    setNewPartTargetShiftA("")
+    setNewPartTargetShiftB("")
+    setNewPartTargetShiftC("")
+    setEditingPartIndex(null)
     setIsEditing(false)
   }
 
   const handleAddPart = () => {
       if(newPartName && newPartNumber) {
-          setPartsList([...partsList, { name: newPartName, partNumber: newPartNumber }])
+          setPartsList([...partsList, { 
+              name: newPartName, 
+              partNumber: newPartNumber,
+              productionLine: newPartLine || "Line-1",
+              productCode: newPartProductCode,
+              debitAllowance: Number(newPartDebitAllowance) || 0,
+              monthlyRequirement: Number(newPartReq) || 0,
+              safetyStockLevel: Number(newPartSafety) || 0,
+              shiftScheme: newPartShiftScheme,
+              shiftTargets: {
+                  shiftA: Number(newPartTargetShiftA) || 0,
+                  shiftB: Number(newPartTargetShiftB) || 0,
+                  shiftC: newPartShiftScheme === "3-shifts" ? (Number(newPartTargetShiftC) || 0) : 0
+              }
+          }])
           setNewPartName("")
           setNewPartNumber("")
+          setNewPartLine("")
+          setNewPartProductCode("")
+          setNewPartDebitAllowance("")
+          setNewPartReq("")
+          setNewPartSafety("")
+          setNewPartShiftScheme("3-shifts")
+          setNewPartTargetShiftA("")
+          setNewPartTargetShiftB("")
+          setNewPartTargetShiftC("")
       }
+  }
+
+  const handleEditPartClick = (index: number) => {
+      const part = partsList[index]
+      setEditingPartIndex(index)
+      setNewPartName(part.name || "")
+      setNewPartNumber(part.partNumber || "")
+      setNewPartLine(part.productionLine || "")
+      setNewPartProductCode(part.productCode || "")
+      setNewPartDebitAllowance(part.debitAllowance?.toString() || "")
+      setNewPartReq(part.monthlyRequirement?.toString() || "")
+      setNewPartSafety(part.safetyStockLevel?.toString() || "")
+      setNewPartShiftScheme(part.shiftScheme || "3-shifts")
+      setNewPartTargetShiftA(part.shiftTargets?.shiftA?.toString() || "")
+      setNewPartTargetShiftB(part.shiftTargets?.shiftB?.toString() || "")
+      setNewPartTargetShiftC(part.shiftTargets?.shiftC?.toString() || "")
+  }
+
+  const handleUpdatePart = () => {
+      if (editingPartIndex === null) return
+      if (newPartName && newPartNumber) {
+          const newList = [...partsList]
+          newList[editingPartIndex] = {
+              name: newPartName, 
+              partNumber: newPartNumber,
+              productionLine: newPartLine || "Line-1",
+              productCode: newPartProductCode,
+              debitAllowance: Number(newPartDebitAllowance) || 0,
+              monthlyRequirement: Number(newPartReq) || 0,
+              safetyStockLevel: Number(newPartSafety) || 0,
+              shiftScheme: newPartShiftScheme,
+              shiftTargets: {
+                  shiftA: Number(newPartTargetShiftA) || 0,
+                  shiftB: Number(newPartTargetShiftB) || 0,
+                  shiftC: newPartShiftScheme === "3-shifts" ? (Number(newPartTargetShiftC) || 0) : 0
+              }
+          }
+          setPartsList(newList)
+          setEditingPartIndex(null)
+          setNewPartName("")
+          setNewPartNumber("")
+          setNewPartLine("")
+          setNewPartProductCode("")
+          setNewPartDebitAllowance("")
+          setNewPartReq("")
+          setNewPartSafety("")
+          setNewPartShiftScheme("3-shifts")
+          setNewPartTargetShiftA("")
+          setNewPartTargetShiftB("")
+          setNewPartTargetShiftC("")
+      }
+  }
+
+  const handleCancelPartEdit = () => {
+      setEditingPartIndex(null)
+      setNewPartName("")
+      setNewPartNumber("")
+      setNewPartLine("")
+      setNewPartProductCode("")
+      setNewPartDebitAllowance("")
+      setNewPartReq("")
+      setNewPartSafety("")
+      setNewPartShiftScheme("3-shifts")
+      setNewPartTargetShiftA("")
+      setNewPartTargetShiftB("")
+      setNewPartTargetShiftC("")
   }
 
   const handleRemovePart = (index: number) => {
       const newList = [...partsList]
       newList.splice(index, 1)
       setPartsList(newList)
+      if (editingPartIndex === index) {
+          handleCancelPartEdit()
+      } else if (editingPartIndex !== null && editingPartIndex > index) {
+          setEditingPartIndex(editingPartIndex - 1)
+      }
   }
 
   const filteredSuppliers = suppliers.filter(s => 
@@ -299,27 +527,29 @@ export default function SuppliersPage() {
                   <Plus className="mr-2 h-4 w-4" /> Add Supplier
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[500px]">
+              <DialogContent className="sm:max-w-[650px] max-h-[90vh] flex flex-col">
                 <DialogHeader>
                   <DialogTitle>{isEditing ? "Edit Supplier Details" : "Add New Supplier"}</DialogTitle>
                   <DialogDescription>
                     {isEditing ? "Update supplier profile information." : "Create a new supplier profile and generate access credentials."}
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="id" className="text-right">Supplier ID</Label>
-                    <Input 
-                        id="id" 
+                <div className="grid gap-6 py-4 overflow-y-auto pr-6 -mr-6 px-1 flex-1">
+                   <div className="grid grid-cols-4 items-center gap-4">
+                     <Label htmlFor="supplierId" className="text-right">Supplier Code (User ID)</Label>
+                     <Input 
+                        id="supplierId" 
                         value={supplierId} 
-                        onChange={(e) => setSupplierId(e.target.value.toUpperCase())} 
-                        className="col-span-3" 
-                        placeholder="e.g. SUP005" 
-                    />
-                  </div>
+                        onChange={(e) => setSupplierId(e.target.value)} 
+                        disabled={isEditing} 
+                        className="col-span-3 font-mono uppercase" 
+                        placeholder={isEditing ? "" : "e.g. SUP-0001"} 
+                        required
+                     />
+                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Name</Label>
-                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="Company Name" />
+                    <Label htmlFor="name" className="text-right">Supplier Name</Label>
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="e.g. SAKTHI Castings Ltd" />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                      <Label className="text-right">Category</Label>
@@ -340,11 +570,47 @@ export default function SuppliersPage() {
                      </div>
                   </div>
                   
-                  {category === "Pre-Machining" && (
-                     <div className="grid grid-cols-4 items-center gap-4">
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label htmlFor="address" className="text-right pt-2">Address</Label>
+                    <Textarea 
+                        id="address" 
+                        value={address} 
+                        onChange={(e) => setAddress(e.target.value)} 
+                        className="col-span-3" 
+                        placeholder="Full Registered Office Address" 
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="contact" className="text-right">Contact Person</Label>
+                    <Input id="contact" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} className="col-span-3" placeholder="Full Name" />
+                  </div>
+
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="email" className="text-right">Email ID</Label>
+                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" placeholder="contact@supplier.com" />
+                  </div>
+
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="phone" className="text-right">Mobile Number</Label>
+                    <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="col-span-3" placeholder="+91 98765 43210" />
+                  </div>
+
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="gst" className="text-right">GST Number</Label>
+                    <Input id="gst" value={gstNumber} onChange={(e) => setGstNumber(e.target.value.toUpperCase())} className="col-span-3" placeholder="22AAAAA0000A1Z5" />
+                  </div>
+
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="pan" className="text-right">PAN Number</Label>
+                    <Input id="pan" value={panNumber} onChange={(e) => setPanNumber(e.target.value.toUpperCase())} className="col-span-3" placeholder="ABCDE1234F" />
+                  </div>
+
+                  {category && (
+                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label className="text-right">Operation</Label>
                         <div className="col-span-3">
-                           <Select value={operation} onValueChange={setOperation}>
+                           <Select value={operation} onValueChange={setOperation} disabled={category === "Child-Part"}>
                                <SelectTrigger>
                                    <SelectValue placeholder="Select Operation" />
                                </SelectTrigger>
@@ -355,60 +621,154 @@ export default function SuppliersPage() {
                                </SelectContent>
                            </Select>
                         </div>
-                     </div>
+                      </div>
                   )}
 
-                  {category === "Child-Part" && (
-                       <div className="grid grid-cols-4 items-center gap-4">
-                           <Label className="text-right">Operation</Label>
-                           <div className="col-span-3">
-                               <Input value="Full Finishing" disabled className="bg-slate-100" />
-                           </div>
-                       </div>
-                  )}
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label className="text-right pt-2">Approved Components</Label>
+                      <div className="col-span-3 space-y-3">
+                          <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded-md border border-slate-200">
+                              <Input 
+                                  placeholder="Part Name" 
+                                  value={newPartName}
+                                  onChange={(e) => setNewPartName(e.target.value)}
+                                  className="bg-white"
+                              />
+                              <Input 
+                                  placeholder="Part No" 
+                                  value={newPartNumber}
+                                  onChange={(e) => setNewPartNumber(e.target.value)}
+                                  className="bg-white"
+                              />
+                              <Input 
+                                  placeholder="Production Line (e.g. Line-1)" 
+                                  value={newPartLine}
+                                  onChange={(e) => setNewPartLine(e.target.value)}
+                                  className="bg-white"
+                              />
+                              <Input 
+                                  placeholder="Product Code (Internal)" 
+                                  value={newPartProductCode}
+                                  onChange={(e) => setNewPartProductCode(e.target.value)}
+                                  className="bg-white"
+                              />
+                              <Input 
+                                  type="number"
+                                  placeholder="Debit Allowance (e.g. 50)" 
+                                  value={newPartDebitAllowance}
+                                  onChange={(e) => setNewPartDebitAllowance(e.target.value)}
+                                  className="bg-white"
+                              />
+                              <Input 
+                                  type="number"
+                                  placeholder="Monthly Req (e.g. 5000)" 
+                                  value={newPartReq}
+                                  onChange={(e) => setNewPartReq(e.target.value)}
+                                  className="bg-white"
+                              />
+                              <Input 
+                                  type="number"
+                                  placeholder="Safety Stock (e.g. 500)" 
+                                  value={newPartSafety}
+                                  onChange={(e) => setNewPartSafety(e.target.value)}
+                                  className="bg-white"
+                              />
+                              <Select value={newPartShiftScheme} onValueChange={setNewPartShiftScheme}>
+                                  <SelectTrigger className="bg-white">
+                                      <SelectValue placeholder="Select Shifts System" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                      <SelectItem value="3-shifts">3 Shifts (8 hrs/shift)</SelectItem>
+                                      <SelectItem value="2-shifts">2 Shifts (12 hrs/shift)</SelectItem>
+                                  </SelectContent>
+                              </Select>
+                              
+                              <div className="col-span-2 border-t pt-2 mt-1">
+                                  <Label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1.5">Shift-wise Production Target Qty</Label>
+                                  <div className="grid grid-cols-3 gap-2">
+                                      <div className="grid gap-0.5">
+                                          <Label className="text-[9px] text-slate-400">Shift A</Label>
+                                          <Input 
+                                              type="number" 
+                                              placeholder="Target Qty" 
+                                              value={newPartTargetShiftA} 
+                                              onChange={(e) => setNewPartTargetShiftA(e.target.value)}
+                                              className="h-8 text-xs bg-white"
+                                          />
+                                      </div>
+                                      <div className="grid gap-0.5">
+                                          <Label className="text-[9px] text-slate-400">Shift B</Label>
+                                          <Input 
+                                              type="number" 
+                                              placeholder="Target Qty" 
+                                              value={newPartTargetShiftB} 
+                                              onChange={(e) => setNewPartTargetShiftB(e.target.value)}
+                                              className="h-8 text-xs bg-white"
+                                          />
+                                      </div>
+                                      {newPartShiftScheme === "3-shifts" && (
+                                          <div className="grid gap-0.5">
+                                              <Label className="text-[9px] text-slate-400">Shift C</Label>
+                                              <Input 
+                                                  type="number" 
+                                                  placeholder="Target Qty" 
+                                                  value={newPartTargetShiftC} 
+                                                  onChange={(e) => setNewPartTargetShiftC(e.target.value)}
+                                                  className="h-8 text-xs bg-white"
+                                              />
+                                          </div>
+                                      )}
+                                  </div>
+                              </div>
 
-                   <div className="grid grid-cols-4 items-start gap-4">
-                     <Label className="text-right pt-2">Approved Components</Label>
-                     <div className="col-span-3 space-y-3">
-                        <div className="flex gap-2">
-                             <Input 
-                                placeholder="Part Name (e.g. Gear)" 
-                                value={newPartName}
-                                onChange={(e) => setNewPartName(e.target.value)}
-                             />
-                             <Input 
-                                placeholder="Part No (e.g. GS-101)" 
-                                value={newPartNumber}
-                                onChange={(e) => setNewPartNumber(e.target.value)}
-                             />
-                             <Button type="button" size="sm" onClick={handleAddPart}>Add</Button>
-                        </div>
-                        
-                        {partsList.length > 0 && (
-                            <div className="border rounded-md p-2 bg-slate-50 space-y-1">
-                                {partsList.map((part, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-sm p-1 border-b last:border-0">
-                                        <span><b>{part.name}</b> <span className="text-slate-500">({part.partNumber})</span></span>
-                                        <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500" onClick={() => handleRemovePart(idx)}>
-                                            <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                     </div>
-                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="email" className="text-right">Email</Label>
-                    <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" placeholder="contact@company.com" />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="phone" className="text-right">Phone</Label>
-                    <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="col-span-3" placeholder="+91 ..." />
-                  </div>
+                              {editingPartIndex !== null ? (
+                                  <div className="col-span-2 grid grid-cols-2 gap-2 mt-2">
+                                      <Button type="button" size="sm" onClick={handleUpdatePart} className="bg-green-600 hover:bg-green-500 text-white font-semibold">Update Component</Button>
+                                      <Button type="button" size="sm" variant="outline" onClick={handleCancelPartEdit}>Cancel Edit</Button>
+                                  </div>
+                              ) : (
+                                  <Button type="button" size="sm" onClick={handleAddPart} className="col-span-2 mt-2">Add Component</Button>
+                              )}
+                         </div>
+                         
+                         {partsList.length > 0 && (
+                             <div className="border rounded-md p-2 bg-slate-50 space-y-1">
+                                 {partsList.map((part: any, idx) => (
+                                     <div key={idx} className="flex justify-between items-center text-xs p-1 border-b last:border-0">
+                                         <div>
+                                             <b>{part.name}</b> <span className="text-slate-500">({part.partNumber})</span>
+                                             <div className="text-[10px] text-slate-400">
+                                                  Line: {part.productionLine || "Line-1"} | Prod Code: {part.productCode || "-"} | Debit Allow: {part.debitAllowance || 0}
+                                              </div>
+                                              <div className="text-[10px] text-slate-400">
+                                                  Req: {part.monthlyRequirement || 0} | Safety: {part.safetyStockLevel || 0}
+                                              </div>
+                                             <div className="text-[9px] text-primary font-medium">
+                                                  Shifts: {part.shiftScheme === "2-shifts" ? "2 Shifts (12h)" : "3 Shifts (8h)"} | Targets: A={part.shiftTargets?.shiftA || 0}, B={part.shiftTargets?.shiftB || 0}
+                                                  {part.shiftScheme !== "2-shifts" && `, C=${part.shiftTargets?.shiftC || 0}`}
+                                              </div>
+                                         </div>
+                                         <div className="flex items-center gap-1">
+                                             <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-slate-500 hover:text-slate-900" onClick={() => handleEditPartClick(idx)}>
+                                                 <Pencil className="h-3 w-3" />
+                                             </Button>
+                                             <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500 hover:text-red-700" onClick={() => handleRemovePart(idx)}>
+                                                 <Trash2 className="h-3 w-3" />
+                                             </Button>
+                                         </div>
+                                     </div>
+                                 ))}
+                             </div>
+                         )}
+                      </div>
+                    </div>
                 </div>
-                <DialogFooter>
-                  <Button onClick={handleAddSupplier} disabled={!supplierId || !name || !category || !email}>
+                <DialogFooter className="border-t pt-4">
+                  <Button 
+                    onClick={handleAddSupplier} 
+                    disabled={!supplierId || !name || !category || !email}
+                    className="bg-primary hover:bg-orange-600 text-white w-full sm:w-auto"
+                  >
                     {isEditing ? "Update Supplier" : "Create Supplier"}
                   </Button>
                 </DialogFooter>
@@ -442,7 +802,14 @@ export default function SuppliersPage() {
                   <CardDescription>Suppliers handling raw casting and pre-machining operations.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <SupplierTable data={preMachiningSuppliers} onDeleteClick={handleDeleteClick} onEditClick={handleEditClick} onEmailClick={handleOpenEmailDialog} />
+                    <SupplierTable 
+                       data={preMachiningSuppliers} 
+                       onDeleteClick={handleDeleteClick} 
+                       onEditClick={handleEditClick} 
+                       onEmailClick={handleOpenEmailDialog} 
+                       onActivateClick={handleActivateSupplier} 
+                       onOpeningStockClick={handleOpenOpeningStockDialog}
+                    />
                 </CardContent>
               </Card>
          </TabsContent>
@@ -454,7 +821,14 @@ export default function SuppliersPage() {
                   <CardDescription>Suppliers providing finished child parts like gears and shafts.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                   <SupplierTable data={childPartSuppliers} onDeleteClick={handleDeleteClick} onEditClick={handleEditClick} onEmailClick={handleOpenEmailDialog} />
+                    <SupplierTable 
+                       data={childPartSuppliers} 
+                       onDeleteClick={handleDeleteClick} 
+                       onEditClick={handleEditClick} 
+                       onEmailClick={handleOpenEmailDialog} 
+                       onActivateClick={handleActivateSupplier} 
+                       onOpeningStockClick={handleOpenOpeningStockDialog}
+                    />
                 </CardContent>
               </Card>
          </TabsContent>
@@ -527,12 +901,69 @@ export default function SuppliersPage() {
               </DialogFooter>
           </DialogContent>
       </Dialog>
+
+      {/* Monthly Opening Stock Dialog */}
+      <Dialog open={openingStockDialogOpen} onOpenChange={setOpeningStockDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                  <DialogTitle>Enter Monthly Opening Stock</DialogTitle>
+                  <DialogDescription>
+                      Enter opening stock level for <b>{selectedSupplierForStock?.name}</b> components.
+                  </DialogDescription>
+              </DialogHeader>
+              {selectedSupplierForStock && (
+                  <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                           <Label htmlFor="partSelect">Select Part Number</Label>
+                           <Select value={selectedPartForStock} onValueChange={setSelectedPartForStock}>
+                               <SelectTrigger id="partSelect">
+                                   <SelectValue placeholder="Choose a part" />
+                               </SelectTrigger>
+                               <SelectContent>
+                                   {selectedSupplierForStock.approvedParts && selectedSupplierForStock.approvedParts.map((part: any, i: number) => (
+                                       <SelectItem key={i} value={part.partNumber}>
+                                           {part.name} ({part.partNumber}) - Line: {part.productionLine || "Line-1"}
+                                       </SelectItem>
+                                   ))}
+                               </SelectContent>
+                           </Select>
+                      </div>
+                      <div className="grid gap-2">
+                           <Label htmlFor="stockDate">Opening Stock Date</Label>
+                           <Input 
+                              id="stockDate" 
+                              type="date"
+                              value={stockDate}
+                              onChange={(e) => setStockDate(e.target.value)}
+                           />
+                           <p className="text-[10px] text-muted-foreground">Select the 1st of the month for which opening stock applies.</p>
+                      </div>
+                      <div className="grid gap-2">
+                           <Label htmlFor="openingStockValue">Opening Stock Quantity</Label>
+                           <Input 
+                              id="openingStockValue" 
+                              type="number"
+                              placeholder="e.g. 1000"
+                              value={openingStockValue}
+                              onChange={(e) => setOpeningStockValue(e.target.value)}
+                           />
+                      </div>
+                  </div>
+              )}
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setOpeningStockDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleSaveOpeningStock} className="bg-primary hover:bg-orange-600 text-white" disabled={!selectedPartForStock || !stockDate || !openingStockValue}>
+                      Save Opening Stock
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 // Helper Component defined outside to prevent re-renders
-function SupplierTable({ data, onDeleteClick, onEditClick, onEmailClick }: { data: any[], onDeleteClick: (id: string) => void, onEditClick: (supplier: any) => void, onEmailClick: (supplier: any) => void }) {
+function SupplierTable({ data, onDeleteClick, onEditClick, onEmailClick, onActivateClick, onOpeningStockClick }: { data: any[], onDeleteClick: (id: string) => void, onEditClick: (supplier: any) => void, onEmailClick: (supplier: any) => void, onActivateClick: (id: string) => void, onOpeningStockClick: (supplier: any) => void }) {
   return (
     <Table>
       <TableHeader>
@@ -600,8 +1031,16 @@ function SupplierTable({ data, onDeleteClick, onEditClick, onEmailClick }: { dat
                           <DropdownMenuItem onClick={() => onEmailClick(supplier)}>
                               <Mail className="mr-2 h-4 w-4" /> Send Email
                           </DropdownMenuItem>
+                          {supplier.status === 'Pending Activation' && (
+                              <DropdownMenuItem onClick={() => onActivateClick(supplier.id)} className="text-green-600 focus:text-green-600">
+                                  Activate Account
+                              </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem onClick={() => onEditClick(supplier)}>
                               Edit Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onOpeningStockClick(supplier)}>
+                               Enter Opening Stock
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 

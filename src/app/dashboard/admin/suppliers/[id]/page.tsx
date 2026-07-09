@@ -97,7 +97,7 @@ export default function SupplierProfilePage() {
                     <CardContent>
                          <div className="flex flex-wrap gap-1">
                             {user.companyDetails?.approvedParts?.map((part: any, i: number) => (
-                                <span key={i} className="px-2 py-1 bg-secondary text-secondary-foreground text-xs rounded-md">
+                                <span key={i} className="px-2 py-1 bg-secondary text-secondary-foreground text-xs rounded-md" title={`Product Code: ${part.productCode || '-'} | Debit Allowance: ${part.debitAllowance || 0}`}>
                                     {part.name} <span className="opacity-70">({part.partNumber})</span>
                                 </span>
                             ))}

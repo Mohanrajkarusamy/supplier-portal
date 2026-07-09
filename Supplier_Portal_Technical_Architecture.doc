@@ -1,0 +1,154 @@
+
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>Supplier Portal & SQA Management System - Technical Overview</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    line-height: 1.6;
+    color: #334155;
+    margin: 40px;
+  }
+  h1 {
+    color: #ea580c;
+    font-size: 24pt;
+    border-bottom: 2px solid #ea580c;
+    padding-bottom: 6px;
+    margin-top: 0;
+  }
+  h2 {
+    color: #1e293b;
+    font-size: 16pt;
+    margin-top: 24pt;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 4px;
+  }
+  h3 {
+    color: #475569;
+    font-size: 12pt;
+    margin-top: 14pt;
+  }
+  p, li {
+    font-size: 11pt;
+    margin-bottom: 8pt;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 12pt;
+    margin-bottom: 12pt;
+  }
+  th, td {
+    border: 1px solid #cbd5e1;
+    padding: 8pt;
+    font-size: 10pt;
+    text-align: left;
+  }
+  th {
+    background-color: #f8fafc;
+    font-weight: bold;
+    color: #0f172a;
+  }
+  .formula {
+    background-color: #f1f5f9;
+    padding: 10pt;
+    border-left: 4px solid #3b82f6;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 10.5pt;
+    margin: 12pt 0;
+  }
+  .bullet-list {
+    margin-top: 4pt;
+    margin-bottom: 8pt;
+    padding-left: 20pt;
+  }
+</style>
+</head>
+<body>
+
+<h1>Supplier Portal & SQA Management System</h1>
+<p style="font-size: 12pt; color: #64748b; font-style: italic;">Technical Architecture & System Overview</p>
+
+<p>This document outlines the software architecture, data structures, and functional components built for the Supplier Portal & SQA Management System to present to Sakthi Auto Component's IT and management teams.</p>
+
+<h2>1. Core Technology Stack</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 25%;">Technology Layer</th>
+      <th style="width: 30%;">Software / Library</th>
+      <th style="width: 45%;">Purpose & Function</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>Application Framework</b></td>
+      <td>Next.js 16 (React 19)</td>
+      <td>Handles both the frontend user interface rendering (Server-Side and Client-Side rendering) and backend REST API handlers in a unified, modern web workspace.</td>
+    </tr>
+    <tr>
+      <td><b>Database</b></td>
+      <td>MongoDB & Mongoose ODM</td>
+      <td>Cloud-native, document-oriented NoSQL database used to store accounts, logs, audits, and settings with high scaling performance.</td>
+    </tr>
+    <tr>
+      <td><b>Styling / UI Elements</b></td>
+      <td>Tailwind CSS & shadcn/ui</td>
+      <td>Responsive utility-first styling framework combined with interactive accessible UI modules to ensure the portal fits mobile and desktop viewports.</td>
+    </tr>
+    <tr>
+      <td><b>Data Visualization</b></td>
+      <td>Recharts</td>
+      <td>Renders live charts and performance dashboards for daily production, dispatch, rejection, and inventory risk trends.</td>
+    </tr>
+    <tr>
+      <td><b>Email Notification System</b></td>
+      <td>EmailJS / SMTP Server</td>
+      <td>Automatically sends critical notifications (e.g. stock shortages, report uploads) to supplier, SQA admin, and purchase departments.</td>
+    </tr>
+    <tr>
+      <td><b>Deployment & Caching</b></td>
+      <td>Vercel</td>
+      <td>Edge-optimized cloud hosting server providing continuous deployment, serverless runtime, and static assets caching.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>2. Cloud Database Collection Schemas</h2>
+<p>The system features four primary database schemas modeled using Mongoose:</p>
+
+<h3>A. Users & Supplier Profiles (User Collection)</h3>
+<p>Stores supplier profiles containing approved components, tax IDs, and safety stock levels.</p>
+<ul class="bullet-list">
+  <li><b>approvedParts</b>: Defines the components the supplier is certified to supply, specifying <i>partNumber</i>, <i>name</i>, and <i>debitAllowance</i> (allowed rejection % tolerance).</li>
+</ul>
+
+<h3>B. Performance Log (Production Collection)</h3>
+<p>Tracks daily material balance logs submitted by suppliers and verified by the SQA team.</p>
+<div class="formula">
+  Closing Stock = Opening Stock + Casting Issued + Production - Rejection - Dispatch
+</div>
+<ul class="bullet-list">
+  <li><b>enteredBy</b>: Distinguishes whether the log was entered by the <i>Supplier</i> or created/modified by the <i>Admin</i> for complete auditability.</li>
+</ul>
+
+<h3>C. Live Production Lines (SettingChange Collection)</h3>
+<p>Tracks the active component running on each of the supplier's pre-machining lines (maximum of 5 lines).</p>
+
+<h3>D. Rejection Debit Notes (DebitNote Collection)</h3>
+<p>Manages rejection charges exceeding allowance thresholds.</p>
+<div class="formula">
+  Allowance Qty = Received Qty * (Allowance % / 100)<br>
+  Exceed Qty = Max(0, Rejection Qty - Allowance Qty)<br>
+  Total Debit Amount = Exceed Qty * Recovery Rate
+</div>
+
+<h2>3. Key System Features</h2>
+<ul class="bullet-list">
+  <li><b>Dual Portal RBAC</b>: Separates SQA Admin features (complaints tracking, debit notes, audit uploads) from Supplier tools (daily logging, line change overrides, report downloads).</li>
+  <li><b>Automated Alerts</b>: Dispatches email notifications when daily logs show a closing balance under 100 units (Red Alert) or under 500 units (Orange Alert).</li>
+</ul>
+
+</body>
+</html>

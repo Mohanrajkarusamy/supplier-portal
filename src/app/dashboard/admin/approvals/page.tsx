@@ -63,7 +63,9 @@ export default function AdminApprovalsPage() {
     }
 
     const handleDownload = () => {
-        alert(`Downloading file: ${selectedDoc?.fileUrl}`)
+        if (selectedDoc?.fileUrl) {
+            window.open(selectedDoc.fileUrl, '_blank')
+        }
     }
 
     return (
@@ -124,10 +126,12 @@ export default function AdminApprovalsPage() {
                                                     <div className="grid gap-4 py-4">
                                                         <div className="grid grid-cols-4 items-center gap-4">
                                                             <Label className="text-right">File</Label>
-                                                            <div className="col-span-3 flex items-center space-x-2">
-                                                                <span className="text-sm text-gray-500">{doc.fileUrl}</span>
-                                                                <Button size="sm" variant="outline" onClick={handleDownload}>Download</Button>
-                                                            </div>
+                                                             <div className="col-span-3 flex items-center space-x-3">
+                                                                 <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline hover:text-orange-600 font-medium">
+                                                                     View Document
+                                                                 </a>
+                                                                 <Button size="sm" variant="outline" onClick={() => window.open(doc.fileUrl, '_blank')}>Download</Button>
+                                                             </div>
                                                         </div>
                                                         <div className="grid grid-cols-4 items-center gap-4">
                                                             <Label htmlFor="remarks" className="text-right">Remarks</Label>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertCircle, Plus, Filter, MoreHorizontal, Pencil, CheckCircle2 } from "lucide-react"
+import { AlertCircle, Plus, Filter, MoreHorizontal, Pencil, CheckCircle2, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -156,6 +156,24 @@ export default function AdminIssuesPage() {
         setStatus("Open")
         setRootCause("")
         setCorrectiveAction("")
+    }
+
+    const handleDelete = async (id: string) => {
+        if (confirm("Are you sure you want to delete this Quality Issue?")) {
+            try {
+                const res = await fetch(`/api/issues?id=${id}`, {
+                    method: 'DELETE'
+                });
+                if (res.ok) {
+                    fetchIssues();
+                    alert("Issue deleted successfully.");
+                } else {
+                    alert("Failed to delete issue.");
+                }
+            } catch (e) {
+                alert("Network error.");
+            }
+        }
     }
 
     return (
@@ -330,6 +348,12 @@ export default function AdminIssuesPage() {
                                                     }).then(() => fetchIssues())
                                                 }}>
                                                     {issue.status === "Open" ? <><CheckCircle2 className="mr-2 h-4 w-4" /> Mark Closed</> : "Re-open Issue"}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem 
+                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50 focus:text-red-700 focus:bg-red-50 cursor-pointer"
+                                                    onClick={() => handleDelete(issue.id)}
+                                                >
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Issue
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>

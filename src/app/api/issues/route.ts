@@ -40,3 +40,20 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    await connectDB();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ success: false, message: 'Missing issue id' }, { status: 400 });
+    }
+
+    await Issue.findOneAndDelete({ id });
+    return NextResponse.json({ success: true });
+  } catch(error) {
+      return NextResponse.json({ success: false, error }, { status: 500 });
+  }
+}
