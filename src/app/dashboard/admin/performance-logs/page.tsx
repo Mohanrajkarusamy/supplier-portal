@@ -301,9 +301,8 @@ export default function AdminPerformanceLogsPage() {
                           <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '8px', color: '#fff' }} />
                           <Legend />
                           <Line type="monotone" dataKey="plannedQty" name="Target (Planned Qty)" stroke="#f59e0b" strokeWidth={2.5} strokeDasharray="5 5" />
-                          <Bar dataKey="production" name="Actual Production" fill="#22c55e" barSize={16} radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="dispatch" name="Load Received (Actual)" fill="#3b82f6" barSize={16} radius={[4, 4, 0, 0]} />
                           <Bar dataKey="rejection" name="SQA Rejections" fill="#ef4444" barSize={12} radius={[4, 4, 0, 0]} />
-                          <Line type="monotone" dataKey="dispatch" name="Dispatch" stroke="#3b82f6" strokeWidth={2} />
                       </ComposedChart>
                   </ResponsiveContainer>
               )}
