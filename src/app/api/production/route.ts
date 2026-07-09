@@ -15,7 +15,10 @@ export async function GET(request: Request) {
 
     const query: any = {};
     if (supplierId) query.supplierId = supplierId;
-    if (partNumber) query.partNumber = partNumber;
+    if (partNumber) {
+      const trimmed = partNumber.trim();
+      query.partNumber = { $regex: new RegExp('^' + trimmed + '\\s*$', 'i') };
+    }
     if (enteredBy) query.enteredBy = enteredBy;
 
     const logs = await Production.find(query).sort({ date: -1 });
@@ -51,10 +54,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: 'Missing required fields' }, { status: 400 });
     }
 
+    const trimmedPartNumber = partNumber.trim();
+
     // 1. Check if a record already exists for this supplier, part, date, and enteredBy
     let record = await Production.findOne({ 
       supplierId, 
-      partNumber, 
+      partNumber: { $regex: new RegExp('^' + trimmedPartNumber + '\\s*$', 'i') }, 
       date, 
       enteredBy,
       ...(shift !== 'N/A' && !isOpeningStockRecord ? { shift } : {}) 
@@ -89,7 +94,8 @@ export async function POST(request: Request) {
         finalClosingStock = finalOpeningStock + Number(mergedCasting) - Number(mergedDispatch);
       }
 
-      // Update existing record with merged values
+      // Update existing record with merged values and normalized partNumber
+      record.partNumber = trimmedPartNumber;
       record.productionLine = productionLine || record.productionLine;
       record.shift = shift || record.shift;
       record.openingStock = finalOpeningStock;
@@ -111,7 +117,7 @@ export async function POST(request: Request) {
       } else {
         const prevRecord = await Production.findOne({
           supplierId,
-          partNumber,
+          partNumber: { $regex: new RegExp('^' + trimmedPartNumber + '\\s*$', 'i') },
           enteredBy,
           date: { $lt: date }
         }).sort({ date: -1 });
@@ -122,7 +128,7 @@ export async function POST(request: Request) {
 
       record = await Production.create({
         supplierId,
-        partNumber,
+        partNumber: trimmedPartNumber,
         productionLine,
         shift,
         date,

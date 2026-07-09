@@ -102,7 +102,7 @@ export default function AdminDebitNotesPage() {
                 const totalRejected = adminLogs.reduce((sum, l) => sum + (l.rejection || 0), 0)
 
                 const selectedSupp = suppliers.find(s => s.id === suppId)
-                const approvedPart = selectedSupp?.companyDetails?.approvedParts?.find((p: any) => p.partNumber === partNum)
+                const approvedPart = selectedSupp?.companyDetails?.approvedParts?.find((p: any) => (p.partNumber || "").trim() === (partNum || "").trim())
                 const allowancePercent = approvedPart?.debitAllowance || 0
 
                 const allowanceQty = Number((totalReceived * (allowancePercent / 100)).toFixed(2))

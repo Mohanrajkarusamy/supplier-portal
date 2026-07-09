@@ -295,7 +295,7 @@ export default function AdminDashboardPage() {
       for (const s of supplierList) {
           const parts = s.companyDetails?.approvedParts || []
           for (const part of parts) {
-              const pLogs = prodLogs.filter((l: any) => l.supplierId === s.id && l.partNumber === part.partNumber)
+              const pLogs = prodLogs.filter((l: any) => l.supplierId === s.id && (l.partNumber || "").trim() === (part.partNumber || "").trim())
               const sortedLogs = [...pLogs].sort((a,b) => a.date.localeCompare(b.date))
               
               // Opening Stock is the earliest openingStock record or first daily log's openingStock
