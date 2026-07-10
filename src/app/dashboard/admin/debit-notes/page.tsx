@@ -220,74 +220,60 @@ export default function AdminDebitNotesPage() {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-3 pt-2">
-                                        <div className="grid gap-2">
-                                            <Label className="text-xs font-semibold text-slate-700">Allowance Percentage (%)</Label>
-                                            <Input 
-                                                type="number" 
-                                                value={newNote.allowancePercentage} 
-                                                onChange={(e) => {
-                                                    const val = Number(e.target.value) || 0;
-                                                    const allowanceQty = Number((newNote.receivedQuantity * (val / 100)).toFixed(2));
-                                                    const exceedQty = Math.max(0, newNote.rejectionQuantity - allowanceQty);
-                                                    setNewNote(prev => ({
-                                                        ...prev,
-                                                        allowancePercentage: val,
-                                                        allowanceQuantity: allowanceQty,
-                                                        exceedQuantity: exceedQty
-                                                    }));
-                                                }} 
-                                            />
-                                        </div>
-                                        <div className="grid gap-2">
-                                            <Label className="text-xs font-semibold text-slate-700">Recovery Rate (per unit)</Label>
-                                            <div className="relative">
-                                                <IndianRupee className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
-                                                <Input type="number" className="pl-8" placeholder="Rate" value={newNote.recoveryRate || ''} onChange={(e) => setNewNote(prev => ({ ...prev, recoveryRate: Number(e.target.value) }))} />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                     <div className="grid grid-cols-1 gap-3 pt-2">
+                                         <div className="grid gap-2">
+                                             <Label className="text-xs font-semibold text-slate-700">Allowance Percentage (%)</Label>
+                                             <Input 
+                                                 type="number" 
+                                                 value={newNote.allowancePercentage} 
+                                                 onChange={(e) => {
+                                                     const val = Number(e.target.value) || 0;
+                                                     const allowanceQty = Number((newNote.receivedQuantity * (val / 100)).toFixed(2));
+                                                     const exceedQty = Math.max(0, newNote.rejectionQuantity - allowanceQty);
+                                                     setNewNote(prev => ({
+                                                         ...prev,
+                                                         allowancePercentage: val,
+                                                         allowanceQuantity: allowanceQty,
+                                                         exceedQuantity: exceedQty
+                                                     }));
+                                                 }} 
+                                             />
+                                         </div>
+                                     </div>
+                                 </div>
 
-                                {/* Calculation Receipt Panel */}
-                                <div className="bg-slate-50 border rounded-lg p-5 flex flex-col justify-between">
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center pb-2 border-b">
-                                            <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500">2. Log Calculations</h3>
-                                            <Badge variant="outline" className="bg-white">Verified Admin Logs</Badge>
-                                        </div>
-                                        
-                                        <div className="space-y-3 text-sm">
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Received Quantity (Total Dispatch):</span>
-                                                <span className="font-mono font-bold text-slate-700">{newNote.receivedQuantity} Units</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Rejection Quantity (SQA logs):</span>
-                                                <span className="font-mono font-bold text-red-600">{newNote.rejectionQuantity} Units</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Allowance (Tolerance %):</span>
-                                                <span className="font-mono font-bold text-slate-700">{newNote.allowancePercentage}%</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-slate-500">Allowance Qty (Acceptable Limit):</span>
-                                                <span className="font-mono font-bold text-slate-700">{newNote.allowanceQuantity} Units</span>
-                                            </div>
-                                            <div className="flex justify-between pt-2 border-t font-semibold">
-                                                <span className="text-slate-700">Exceed Quantity (Billable Limit):</span>
-                                                <span className="font-mono text-red-600 font-extrabold">{newNote.exceedQuantity} Units</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-8 pt-4 border-t">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-md font-bold text-slate-700">Total Debit Recovery:</span>
-                                            <span className="text-2xl font-extrabold text-primary font-mono">₹{newNote.debitAmount.toLocaleString()}</span>
-                                        </div>
-                                    </div>
-                                </div>
+                                 {/* Calculation Receipt Panel */}
+                                 <div className="bg-slate-50 border rounded-lg p-5 flex flex-col justify-between">
+                                     <div className="space-y-4">
+                                         <div className="flex justify-between items-center pb-2 border-b">
+                                             <h3 className="font-bold text-xs uppercase tracking-wider text-slate-500">2. Log Calculations</h3>
+                                             <Badge variant="outline" className="bg-white">Verified Admin Logs</Badge>
+                                         </div>
+                                         
+                                         <div className="space-y-3 text-sm">
+                                             <div className="flex justify-between">
+                                                 <span className="text-slate-500">Received Quantity (Total Dispatch):</span>
+                                                 <span className="font-mono font-bold text-slate-700">{newNote.receivedQuantity} Units</span>
+                                             </div>
+                                             <div className="flex justify-between">
+                                                 <span className="text-slate-500">Rejection Quantity (SQA logs):</span>
+                                                 <span className="font-mono font-bold text-red-600">{newNote.rejectionQuantity} Units</span>
+                                             </div>
+                                             <div className="flex justify-between">
+                                                 <span className="text-slate-500">Allowance (Tolerance %):</span>
+                                                 <span className="font-mono font-bold text-slate-700">{newNote.allowancePercentage}%</span>
+                                             </div>
+                                             <div className="flex justify-between">
+                                                 <span className="text-slate-500">Allowance Qty (Acceptable Limit):</span>
+                                                 <span className="font-mono font-bold text-slate-700">{newNote.allowanceQuantity} Units</span>
+                                             </div>
+                                             <div className="flex justify-between pt-2 border-t font-semibold">
+                                                 <span className="text-slate-700">Exceed Quantity (Billable Limit):</span>
+                                                 <span className="font-mono text-red-600 font-extrabold">{newNote.exceedQuantity} Units</span>
+                                             </div>
+                                         </div>
+                                     </div>
+                                 </div>
                             </div>
                             <DialogFooter>
                                 <Button onClick={handleSubmit} className="bg-primary text-white hover:bg-orange-600 font-bold px-6 shadow">Generate Debit Note</Button>
@@ -307,7 +293,13 @@ export default function AdminDebitNotesPage() {
                     <div className="flex flex-wrap gap-2 items-center bg-slate-50 p-2 rounded-lg border">
                         <div className="grid gap-1">
                             <Label className="text-[10px] text-slate-500">Supplier</Label>
-                            <Select value={filterSupplier} onValueChange={setFilterSupplier}>
+                            <Select value={filterSupplier} onValueChange={(val) => {
+                                setFilterSupplier(val)
+                                if (val !== "All" && filterMonth === "All") {
+                                    const now = new Date()
+                                    setFilterMonth(String(now.getMonth() + 1).padStart(2, '0'))
+                                }
+                            }}>
                                 <SelectTrigger className="h-8 text-xs bg-white w-[180px]"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="All">All Suppliers</SelectItem>
@@ -351,13 +343,12 @@ export default function AdminDebitNotesPage() {
                                     <TableHead className="text-right">Allowance %</TableHead>
                                     <TableHead className="text-right">Allowance Qty</TableHead>
                                     <TableHead className="text-right">Exceed Qty</TableHead>
-                                    <TableHead className="text-right">Debit Amount</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {filteredNotes.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={9} className="text-center py-10 text-slate-400">
+                                        <TableCell colSpan={8} className="text-center py-10 text-slate-400">
                                             {loading ? "Loading..." : "No debit notes records found."}
                                         </TableCell>
                                     </TableRow>
@@ -372,7 +363,6 @@ export default function AdminDebitNotesPage() {
                                             <TableCell className="text-right font-mono text-slate-500">{note.allowancePercentage || 0}%</TableCell>
                                             <TableCell className="text-right font-mono text-slate-600 font-semibold">{note.allowanceQuantity || 0}</TableCell>
                                             <TableCell className="text-right font-mono text-amber-700 font-semibold">{note.exceedQuantity || 0}</TableCell>
-                                            <TableCell className="text-right font-mono text-primary font-bold">₹{(note.debitAmount || 0).toLocaleString()}</TableCell>
                                         </TableRow>
                                     ))
                                 )}
