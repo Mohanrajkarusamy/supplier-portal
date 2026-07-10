@@ -83,7 +83,7 @@ export default function AdminDebitNotesPage() {
             const res = await fetch('/api/suppliers')
             if (res.ok) {
                 const data = await res.json()
-                setSuppliers(data.suppliers || [])
+                setSuppliers(Array.isArray(data) ? data : (data.suppliers || []))
             }
         } catch (e) { console.error(e) }
     }
