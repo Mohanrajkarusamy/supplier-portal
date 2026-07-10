@@ -344,7 +344,6 @@ export default function AdminDebitNotesPage() {
                             <TableHeader>
                                 <TableRow className="bg-slate-50">
                                     <TableHead>DN No</TableHead>
-                                    <TableHead>Date</TableHead>
                                     <TableHead>Supplier</TableHead>
                                     <TableHead>Component</TableHead>
                                     <TableHead className="text-right">Recv. Qty</TableHead>
@@ -358,7 +357,7 @@ export default function AdminDebitNotesPage() {
                             <TableBody>
                                 {filteredNotes.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} className="text-center py-10 text-slate-400">
+                                        <TableCell colSpan={9} className="text-center py-10 text-slate-400">
                                             {loading ? "Loading..." : "No debit notes records found."}
                                         </TableCell>
                                     </TableRow>
@@ -366,7 +365,6 @@ export default function AdminDebitNotesPage() {
                                     filteredNotes.map((note) => (
                                         <TableRow key={note.id} className="hover:bg-slate-50/50">
                                             <TableCell className="font-bold text-slate-800">{note.id}</TableCell>
-                                            <TableCell className="font-mono text-xs">{note.date ? new Date(note.date).toLocaleDateString() : 'N/A'}</TableCell>
                                             <TableCell className="font-semibold">{note.supplierId}</TableCell>
                                             <TableCell className="font-mono text-xs">{note.partNumber}</TableCell>
                                             <TableCell className="text-right font-mono">{note.receivedQuantity || 0}</TableCell>
