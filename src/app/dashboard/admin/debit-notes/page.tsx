@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { IndianRupee, Plus, Search, Calendar, RotateCw } from "lucide-react"
+import { IndianRupee, Plus, Search, Calendar, RotateCw, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -17,6 +17,11 @@ export default function AdminDebitNotesPage() {
     const [suppliers, setSuppliers] = useState<any[]>([])
     const [dialogOpen, setDialogOpen] = useState(false)
     const [productionLogs, setProductionLogs] = useState<any[]>([])
+
+    // Allowance editing states
+    const [editAllowanceOpen, setEditAllowanceOpen] = useState(false)
+    const [allowanceTarget, setAllowanceTarget] = useState<{ supplierCode: string; partNum: string; currentValue: number; supplierName: string } | null>(null)
+    const [newAllowanceValue, setNewAllowanceValue] = useState<string>("")
 
     // Registry Filter States
     const [filterSupplier, setFilterSupplier] = useState("All")
@@ -167,6 +172,51 @@ export default function AdminDebitNotesPage() {
                 alert("Debit Note Created Successfully")
             }
         } catch (e) { console.error(e) }
+    }
+
+    const handleSaveAllowance = async () => {
+        if (!allowanceTarget) return
+        try {
+            const supplier = suppliers.find(s => s.id === allowanceTarget.supplierCode || s.name === allowanceTarget.supplierCode)
+            if (!supplier) {
+                alert("Supplier not found")
+                return
+            }
+
+            const updatedDetails = JSON.parse(JSON.stringify(supplier.companyDetails || {}))
+            const approvedParts = updatedDetails.approvedParts || []
+            const targetPart = approvedParts.find((p: any) => (p.partNumber || "").trim() === allowanceTarget.partNum.trim())
+            
+            if (targetPart) {
+                targetPart.debitAllowance = Number(newAllowanceValue)
+            } else {
+                alert("Part not found in supplier registration settings.")
+                return
+            }
+
+            const res = await fetch('/api/suppliers', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: supplier.id,
+                    companyDetails: updatedDetails
+                })
+            })
+
+            const result = await res.json()
+            if (result.success) {
+                alert("Allowance percentage updated successfully!")
+                setEditAllowanceOpen(false)
+                setAllowanceTarget(null)
+                fetchSuppliers()
+                fetchProductionLogs()
+            } else {
+                alert("Failed to update: " + result.message)
+            }
+        } catch (e) {
+            console.error(e)
+            alert("Network error")
+        }
     }
 
     // Auto-calculate on the fly for all parts of the selected supplier
@@ -398,7 +448,30 @@ export default function AdminDebitNotesPage() {
                                             <TableCell className="font-mono text-xs">{note.partNumber}</TableCell>
                                             <TableCell className="text-right font-mono">{note.receivedQuantity || 0}</TableCell>
                                             <TableCell className="text-right font-mono text-red-600 font-semibold">{note.rejectionQuantity || 0}</TableCell>
-                                            <TableCell className="text-right font-mono text-slate-500">{note.allowancePercentage || 0}%</TableCell>
+                                            <TableCell className="text-right font-mono text-slate-500">
+                                                <div className="flex items-center justify-end gap-1.5">
+                                                    <span>{note.allowancePercentage || 0}%</span>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-6 w-6 text-slate-400 hover:text-primary"
+                                                        onClick={() => {
+                                                            const originalSupplier = suppliers.find(s => s.name === note.supplierId);
+                                                            const rawPart = note.partNumber.split('(')[1]?.replace(')', '').trim() || note.partNumber.trim();
+                                                            setAllowanceTarget({
+                                                                supplierCode: originalSupplier?.id || note.supplierId,
+                                                                supplierName: note.supplierId,
+                                                                partNum: rawPart,
+                                                                currentValue: note.allowancePercentage || 0
+                                                            });
+                                                            setNewAllowanceValue(String(note.allowancePercentage || 0));
+                                                            setEditAllowanceOpen(true);
+                                                        }}
+                                                    >
+                                                        <Edit className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
                                             <TableCell className="text-right font-mono text-slate-600 font-semibold">{note.allowanceQuantity || 0}</TableCell>
                                             <TableCell className="text-right font-mono text-amber-700 font-semibold">{note.exceedQuantity || 0}</TableCell>
                                         </TableRow>
@@ -409,6 +482,42 @@ export default function AdminDebitNotesPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            <Dialog open={editAllowanceOpen} onOpenChange={setEditAllowanceOpen}>
+                <DialogContent className="max-w-md border-t-4 border-t-primary">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold text-slate-800">Modify Part Allowance %</DialogTitle>
+                        <DialogDescription>
+                            Update the debit note allowance threshold configuration for this component.
+                        </DialogDescription>
+                    </DialogHeader>
+                    {allowanceTarget && (
+                        <div className="space-y-4 py-3 text-sm">
+                            <div className="grid grid-cols-3 gap-2">
+                                <span className="font-bold text-slate-500">Supplier:</span>
+                                <span className="col-span-2 font-semibold text-slate-800">{allowanceTarget.supplierName}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <span className="font-bold text-slate-500">Component:</span>
+                                <span className="col-span-2 font-mono text-slate-800">{allowanceTarget.partNum}</span>
+                            </div>
+                            <div className="grid gap-2 pt-2">
+                                <Label className="font-bold text-slate-700">New Allowance Percentage (%)</Label>
+                                <Input 
+                                    type="number" 
+                                    step="0.01"
+                                    value={newAllowanceValue} 
+                                    onChange={(e) => setNewAllowanceValue(e.target.value)} 
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditAllowanceOpen(false)}>Cancel</Button>
+                        <Button onClick={handleSaveAllowance} className="bg-primary text-white hover:bg-orange-600 font-bold px-4 shadow">Update Settings</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
