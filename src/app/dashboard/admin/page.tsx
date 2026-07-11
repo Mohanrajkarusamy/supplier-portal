@@ -614,8 +614,9 @@ export default function AdminDashboardPage() {
       }
       
       return Array.from(groupedMap.values()).map(item => {
-          const rejRate = item.production > 0 ? (item.rejection / item.production) * 100 : 0
-          const ppmVal = item.production > 0 ? Math.round((item.rejection / item.production) * 1000000) : 0
+          const baseQty = item.dispatch > 0 ? item.dispatch : (item.production > 0 ? item.production : 0)
+          const rejRate = baseQty > 0 ? (item.rejection / baseQty) * 100 : 0
+          const ppmVal = baseQty > 0 ? Math.round((item.rejection / baseQty) * 1000000) : 0
           return {
               ...item,
               rejectionRate: Math.round(rejRate * 10) / 10,
@@ -1936,7 +1937,7 @@ export default function AdminDashboardPage() {
                                                   <YAxis tick={{fontSize: 10}} />
                                                   <Tooltip />
                                                   <Legend wrapperStyle={{fontSize: 10}} />
-                                                  <Bar dataKey="production" fill="#10b981" name="Actual Production Qty" />
+                                                  <Bar dataKey="dispatch" fill="#10b981" name="Actual Production Qty" />
                                                   {constantPlanValue > 0 && (
                                                       <ReferenceLine 
                                                           y={constantPlanValue} 
