@@ -152,6 +152,28 @@ export default function DailyPerformancePage() {
       }
 
       const part = approvedParts.find(p => p.partNumber === selectedPartNumber)
+      const line = part?.productionLine || "Line-1"
+
+      // Validate that if this line previously logged a different component, a Setting Change transition was logged
+      const lineLogs = logs
+          .filter((l: any) => (l.productionLine || "Line-1") === line)
+          .sort((a, b) => b.date.localeCompare(a.date))
+      
+      const lastLoggedLog = lineLogs[0]
+
+      if (lastLoggedLog && lastLoggedLog.partNumber !== selectedPartNumber) {
+          // A different part number was active last on this line! Check for a setup setting change
+          const transitions = settingChanges
+              .filter(chg => chg.line === line && chg.toPart === part?.name)
+              .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          
+          const latestTransition = transitions[0]
+
+          if (!latestTransition || new Date(latestTransition.date) < new Date(lastLoggedLog.date)) {
+              alert(`Validation Error: Line ${line} was previously producing a different component (${lastLoggedLog.partNumber}). You must log a "Line Setting Change" (setup changeover) first to transition this line to "${part?.name || selectedPartNumber}" before submitting production logs.`);
+              return;
+          }
+      }
 
       try {
           const res = await fetch('/api/production', {
