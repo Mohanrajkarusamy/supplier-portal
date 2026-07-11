@@ -468,25 +468,36 @@ export default function SupplierDashboardPage() {
                                 <th className="p-3 text-left font-medium text-slate-500">Part No / Description</th>
                                 <th className="p-3 text-left font-medium text-slate-500">Line</th>
                                 <th className="p-3 text-right font-medium text-slate-500">Monthly Req.</th>
+                                <th className="p-3 text-right font-medium text-slate-500 text-amber-700">Pending Qty</th>
                                 <th className="p-3 text-right font-medium text-slate-500">Safety Stock</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y">
                             {inv.parts && inv.parts.length > 0 ? (
-                                inv.parts.map((part: any, i: number) => (
-                                    <tr key={i} className="hover:bg-slate-50/50">
-                                        <td className="p-3">
-                                            <span className="font-bold">{part.partNumber}</span>
-                                            <div className="text-xs text-slate-400">{part.name}</div>
-                                        </td>
-                                        <td className="p-3 font-mono">{part.productionLine || "Line-1"}</td>
-                                        <td className="p-3 text-right">{part.monthlyRequirement?.toLocaleString() || 0}</td>
-                                        <td className="p-3 text-right text-slate-600">{part.safetyStockLevel?.toLocaleString() || 0}</td>
-                                    </tr>
-                                ))
+                                inv.parts.map((part: any, i: number) => {
+                                    const partNum = (part.partNumber || "").trim()
+                                    const currentMonthStr = new Date().toISOString().slice(0, 7) // e.g. "2026-07"
+                                    const totalDispatch = productionLogs
+                                        .filter((log: any) => (log.partNumber || "").trim() === partNum && log.date.startsWith(currentMonthStr))
+                                        .reduce((sum: number, log: any) => sum + (log.dispatch || 0), 0)
+                                    const pendingQty = Math.max(0, (part.monthlyRequirement || 0) - totalDispatch)
+
+                                    return (
+                                        <tr key={i} className="hover:bg-slate-50/50">
+                                            <td className="p-3">
+                                                <span className="font-bold">{part.partNumber}</span>
+                                                <div className="text-xs text-slate-400">{part.name}</div>
+                                            </td>
+                                            <td className="p-3 font-mono">{part.productionLine || "Line-1"}</td>
+                                            <td className="p-3 text-right">{part.monthlyRequirement?.toLocaleString() || 0}</td>
+                                            <td className="p-3 text-right font-semibold font-mono text-amber-700">{pendingQty.toLocaleString()}</td>
+                                            <td className="p-3 text-right text-slate-600">{part.safetyStockLevel?.toLocaleString() || 0}</td>
+                                        </tr>
+                                    )
+                                })
                             ) : (
                                 <tr>
-                                    <td colSpan={4} className="p-6 text-center text-slate-400 italic">No parts assigned. Contact admin.</td>
+                                    <td colSpan={5} className="p-6 text-center text-slate-400 italic">No parts assigned. Contact admin.</td>
                                 </tr>
                             )}
                         </tbody>
