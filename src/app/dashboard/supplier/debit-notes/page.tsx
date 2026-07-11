@@ -5,6 +5,7 @@ import { Download, AlertCircle, FileText, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function SupplierDebitNotesPage() {
     const [supplierId, setSupplierId] = useState("")
@@ -12,11 +13,24 @@ export default function SupplierDebitNotesPage() {
     const [productionLogs, setProductionLogs] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
 
+    // Detail Dialog states
+    const [selectedDetail, setSelectedDetail] = useState<any>(null)
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+
     // Registry Filter State
     const [filterMonth, setFilterMonth] = useState(() => {
         const now = new Date()
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     })
+
+    // SQA detail logs calculation
+    const detailLogs = useMemo(() => {
+        if (!selectedDetail) return []
+        return productionLogs.filter(l => 
+            (l.partNumber || "").trim() === selectedDetail.partNumOnly.trim() && 
+            l.date.startsWith(filterMonth)
+        ).sort((a, b) => a.date.localeCompare(b.date))
+    }, [selectedDetail, productionLogs, filterMonth])
 
     useEffect(() => {
         const id = localStorage.getItem("currentUserId") || "SUP001"
@@ -166,7 +180,19 @@ export default function SupplierDebitNotesPage() {
                                         <TableCell className="text-right font-mono text-slate-600 font-semibold">{note.allowanceQuantity || 0}</TableCell>
                                         <TableCell className="text-right font-mono text-amber-700 font-semibold">{note.exceedQuantity || 0}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" className="h-8 text-primary hover:text-primary hover:bg-orange-55">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="sm" 
+                                                className="h-8 text-primary hover:text-primary hover:bg-orange-50"
+                                                onClick={() => {
+                                                    const partNumOnly = note.partNumber.split('(')[1]?.replace(')', '').trim() || note.partNumber.trim();
+                                                    setSelectedDetail({
+                                                        ...note,
+                                                        partNumOnly
+                                                    });
+                                                    setDetailDialogOpen(true);
+                                                }}
+                                            >
                                                 <FileText className="h-4 w-4 mr-2" /> View Details
                                             </Button>
                                         </TableCell>
@@ -188,6 +214,83 @@ export default function SupplierDebitNotesPage() {
                     </p>
                 </div>
             </div>
+
+            <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+                <DialogContent className="max-w-2xl border-t-4 border-t-primary">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold text-slate-800">
+                            Debit Note Statement: {selectedDetail?.id}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Day-wise quality verification logs breakdown for {selectedDetail?.partNumber}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedDetail && (
+                        <div className="space-y-6 py-4">
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-4 gap-4 bg-slate-50 p-4 rounded-lg border text-center">
+                                <div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-500">Recv Qty</div>
+                                    <div className="text-lg font-bold font-mono text-slate-800">{selectedDetail.receivedQuantity}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-500">Rej Qty</div>
+                                    <div className="text-lg font-bold font-mono text-red-600">{selectedDetail.rejectionQuantity}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-500">Allowance limit ({selectedDetail.allowancePercentage}%)</div>
+                                    <div className="text-lg font-bold font-mono text-slate-800">{selectedDetail.allowanceQuantity}</div>
+                                </div>
+                                <div>
+                                    <div className="text-[10px] uppercase font-bold text-slate-500">Exceed Qty</div>
+                                    <div className="text-lg font-extrabold font-mono text-amber-700">{selectedDetail.exceedQuantity}</div>
+                                </div>
+                            </div>
+
+                            {/* Logs Table */}
+                            <div className="border rounded-md overflow-hidden max-h-[250px] overflow-y-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-slate-100">
+                                            <TableHead className="py-2">Date</TableHead>
+                                            <TableHead className="py-2 text-right">Recv. Qty</TableHead>
+                                            <TableHead className="py-2 text-right">Rej. Qty</TableHead>
+                                            <TableHead className="py-2">Rejection Details / Remarks</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {detailLogs.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="text-center py-6 text-slate-400">
+                                                    No entries recorded for this part in the selected month.
+                                                </TableCell>
+                                            </TableRow>
+                                        ) : (
+                                            detailLogs.map((log, index) => (
+                                                <TableRow key={index} className="hover:bg-slate-50/50">
+                                                    <TableCell className="py-2 font-semibold font-mono text-xs">{log.date}</TableCell>
+                                                    <TableCell className="py-2 text-right font-mono text-xs">{log.dispatch || 0}</TableCell>
+                                                    <TableCell className="py-2 text-right font-mono text-xs text-red-600 font-semibold">{log.rejection || 0}</TableCell>
+                                                    <TableCell className="py-2 text-xs text-slate-500 max-w-[200px] truncate" title={log.rejectionRemarks}>
+                                                        {log.rejectionRemarks || log.rejectionDetails || "-"}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </div>
+                    )}
+                    
+                    <DialogFooter>
+                        <Button onClick={() => setDetailDialogOpen(false)} className="bg-primary text-white hover:bg-orange-600 font-bold px-6 shadow">
+                            Close Statement
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
