@@ -82,8 +82,8 @@ export default function SupplierDashboardPage() {
 
   const fetchPerformanceLogs = async (id: string) => {
       try {
-          // Fetch production logs for this supplier
-          const prodRes = await fetch(`/api/production?supplierId=${id}&enteredBy=Supplier`)
+          // Fetch production logs for this supplier entered by Admin
+          const prodRes = await fetch(`/api/production?supplierId=${id}&enteredBy=Admin`)
           if (prodRes.ok) {
               const logs = await prodRes.json()
               setProdLogs(logs)
@@ -173,10 +173,10 @@ export default function SupplierDashboardPage() {
       const list = Array.from(dailyMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
       return list.map(item => {
-          const totalIn = item.production || 0
+          const baseQty = item.dispatch > 0 ? item.dispatch : (item.production > 0 ? item.production : 0)
           const rej = item.rejection || 0
-          const rate = totalIn > 0 ? (rej / totalIn) * 100 : 0
-          const ppmValue = totalIn > 0 ? Math.round((rej / totalIn) * 1000000) : 0
+          const rate = baseQty > 0 ? (rej / baseQty) * 100 : 0
+          const ppmValue = baseQty > 0 ? Math.round((rej / baseQty) * 1000000) : 0
 
           return {
               ...item,
@@ -727,7 +727,7 @@ export default function SupplierDashboardPage() {
                                           <YAxis tick={{fontSize: 10}} />
                                           <Tooltip />
                                           <Legend wrapperStyle={{fontSize: 10}} />
-                                          <Bar dataKey="production" fill="#10b981" name="Actual Production Qty" />
+                                          <Bar dataKey="dispatch" fill="#10b981" name="Actual Production Qty" />
                                           {constantPlanValue > 0 && (
                                               <ReferenceLine 
                                                   y={constantPlanValue} 
