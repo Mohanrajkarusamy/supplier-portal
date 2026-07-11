@@ -32,6 +32,8 @@ export default function DailyPerformancePage() {
   const [dispatchVal, setDispatchVal] = useState("")
   const [shortageReasonVal, setShortageReasonVal] = useState("None")
   const [remarksVal, setRemarksVal] = useState("")
+  const [isSettingChange, setIsSettingChange] = useState(false)
+  const [changeFromPart, setChangeFromPart] = useState("Idle")
 
   // Setting Change Dialog States
   const [changeDialogOpen, setChangeDialogOpen] = useState(false)
@@ -142,6 +144,8 @@ export default function DailyPerformancePage() {
       setDispatchVal("")
       setShortageReasonVal("None")
       setRemarksVal("")
+      setIsSettingChange(false)
+      setChangeFromPart("Idle")
       setAddDialogOpen(true)
   }
 
@@ -154,28 +158,49 @@ export default function DailyPerformancePage() {
       const part = approvedParts.find(p => p.partNumber === selectedPartNumber)
       const line = part?.productionLine || "Line-1"
 
-      // Validate that if this line previously logged a different component, a Setting Change transition was logged
-      const lineLogs = logs
-          .filter((l: any) => (l.productionLine || "Line-1") === line)
-          .sort((a, b) => b.date.localeCompare(a.date))
-      
-      const lastLoggedLog = lineLogs[0]
-
-      if (lastLoggedLog && lastLoggedLog.partNumber !== selectedPartNumber) {
-          // A different part number was active last on this line! Check for a setup setting change
-          const transitions = settingChanges
-              .filter(chg => chg.line === line && chg.toPart === part?.name)
-              .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      // Validate only if isSettingChange is false
+      if (!isSettingChange) {
+          const lineLogs = logs
+              .filter((l: any) => (l.productionLine || "Line-1") === line)
+              .sort((a, b) => b.date.localeCompare(a.date))
           
-          const latestTransition = transitions[0]
+          const lastLoggedLog = lineLogs[0]
 
-          if (!latestTransition || new Date(latestTransition.date) < new Date(lastLoggedLog.date)) {
-              alert(`Validation Error: Line ${line} was previously producing a different component (${lastLoggedLog.partNumber}). You must log a "Line Setting Change" (setup changeover) first to transition this line to "${part?.name || selectedPartNumber}" before submitting production logs.`);
-              return;
+          if (lastLoggedLog && lastLoggedLog.partNumber !== selectedPartNumber) {
+              // A different part number was active last on this line! Check for a setup setting change
+              const transitions = settingChanges
+                  .filter(chg => chg.line === line && chg.toPart === part?.name)
+                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+              
+              const latestTransition = transitions[0]
+
+              if (!latestTransition || new Date(latestTransition.date) < new Date(lastLoggedLog.date)) {
+                  alert(`Validation Error: Line ${line} was previously producing a different component (${lastLoggedLog.partNumber}). You must log a "Line Setting Change" (setup changeover) first to transition this line to "${part?.name || selectedPartNumber}" before submitting production logs.`);
+                  return;
+              }
           }
       }
 
       try {
+          if (isSettingChange) {
+              const transitionRes = await fetch('/api/suppliers/setting-change', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      supplierId,
+                      line,
+                      fromPart: changeFromPart,
+                      toPart: part?.name || selectedPartNumber
+                  })
+              })
+              const transitionResult = await transitionRes.json()
+              if (!transitionResult.success) {
+                  alert(`Failed to save line setting change transition: ${transitionResult.message}`)
+                  return
+              }
+              await fetchSettingChanges(supplierId)
+          }
+
           const res = await fetch('/api/production', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -440,6 +465,39 @@ export default function DailyPerformancePage() {
                                 </SelectContent>
                             </Select>
                        </div>
+                        
+                        <div className="flex items-center space-x-2 py-1 bg-slate-50 p-2.5 rounded border">
+                            <input 
+                                type="checkbox" 
+                                id="isSettingChange" 
+                                checked={isSettingChange}
+                                onChange={(e) => setIsSettingChange(e.target.checked)}
+                                className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                            />
+                            <Label htmlFor="isSettingChange" className="font-semibold text-slate-700 cursor-pointer text-xs">
+                                Register Line Setting Change (Setup Changeover)
+                            </Label>
+                        </div>
+
+                        {isSettingChange && (
+                            <div className="grid gap-2 border p-3 rounded bg-blue-50/50 border-blue-100">
+                                <Label className="text-xs font-semibold text-slate-700">Changed From Component (Previous)</Label>
+                                <Select value={changeFromPart} onValueChange={setChangeFromPart}>
+                                    <SelectTrigger className="bg-white">
+                                        <SelectValue placeholder="Select Previous Component" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Idle">Idle / None</SelectItem>
+                                        {approvedParts.map((p: any, idx: number) => (
+                                            <SelectItem key={idx} value={p.name}>
+                                                {p.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
                        <div className="grid gap-2">
                             <Label htmlFor="remarks">Remarks / Explanation</Label>
                             <Textarea 
