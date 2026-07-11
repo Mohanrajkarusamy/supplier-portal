@@ -477,7 +477,7 @@ export default function SupplierDashboardPage() {
                                 inv.parts.map((part: any, i: number) => {
                                     const partNum = (part.partNumber || "").trim()
                                     const currentMonthStr = new Date().toISOString().slice(0, 7) // e.g. "2026-07"
-                                    const totalDispatch = productionLogs
+                                    const totalDispatch = prodLogs
                                         .filter((log: any) => (log.partNumber || "").trim() === partNum && log.date.startsWith(currentMonthStr))
                                         .reduce((sum: number, log: any) => sum + (log.dispatch || 0), 0)
                                     const pendingQty = Math.max(0, (part.monthlyRequirement || 0) - totalDispatch)
