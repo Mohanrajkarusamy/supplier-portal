@@ -1,34 +1,93 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { IndianRupee, Download, CheckCircle2, AlertCircle, Clock, Filter, FileText } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { Download, AlertCircle, FileText, Calendar } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 
 export default function SupplierDebitNotesPage() {
     const [supplierId, setSupplierId] = useState("")
-    const [notes, setNotes] = useState<any[]>([])
+    const [supplierProfile, setSupplierProfile] = useState<any>(null)
+    const [productionLogs, setProductionLogs] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+
+    // Registry Filter State
+    const [filterMonth, setFilterMonth] = useState(() => {
+        const now = new Date()
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    })
 
     useEffect(() => {
         const id = localStorage.getItem("currentUserId") || "SUP001"
         setSupplierId(id)
-        fetchNotes(id)
+        fetchData(id)
     }, [])
 
-    const fetchNotes = async (id: string) => {
+    const fetchData = async (id: string) => {
+        setLoading(true)
         try {
-            const res = await fetch(`/api/debit-notes?supplierId=${id}`)
-            if (res.ok) {
-                setNotes(await res.json())
+            // Fetch supplier profile
+            const profileRes = await fetch(`/api/suppliers?id=${id}`)
+            if (profileRes.ok) {
+                const profile = await profileRes.json()
+                setSupplierProfile(profile)
             }
-        } catch (e) { console.error(e) }
+
+            // Fetch admin entered production logs for this supplier
+            const prodRes = await fetch(`/api/production?supplierId=${id}&enteredBy=Admin`)
+            if (prodRes.ok) {
+                setProductionLogs(await prodRes.json())
+            }
+        } catch (e) {
+            console.error("Failed to load supplier debit notes data:", e)
+        }
         setLoading(false)
     }
 
-    const totalExceed = notes.reduce((acc, curr) => acc + (curr.exceedQuantity || 0), 0)
+    // Auto-calculate on the fly for all parts supplied by this supplier
+    const calculatedNotes = useMemo(() => {
+        if (!supplierProfile) return []
+
+        const approvedParts = supplierProfile.companyDetails?.approvedParts || []
+        const results: any[] = []
+        let index = 1
+
+        for (const part of approvedParts) {
+            const partNum = (part.partNumber || "").trim()
+            const partName = part.name || partNum
+
+            // Filter logs for this part and selected month
+            const matchedLogs = productionLogs.filter(l => 
+                (l.partNumber || "").trim() === partNum && 
+                l.date.startsWith(filterMonth)
+            )
+
+            const receivedQty = matchedLogs.reduce((sum, l) => sum + (l.dispatch || 0), 0)
+            const rejectionQty = matchedLogs.reduce((sum, l) => sum + (l.rejection || 0), 0)
+
+            // Only show parts with active logs
+            if (receivedQty === 0 && rejectionQty === 0) continue
+
+            const allowancePercent = part.debitAllowance || 0
+            const allowanceQty = Number((receivedQty * (allowancePercent / 100)).toFixed(2))
+            const exceedQty = Math.max(0, rejectionQty - allowanceQty)
+
+            results.push({
+                id: `DN-${filterMonth.replace('-', '')}-${String(index++).padStart(3, '0')}`,
+                partNumber: `${partName} (${partNum})`,
+                receivedQuantity: receivedQty,
+                rejectionQuantity: rejectionQty,
+                allowancePercentage: allowancePercent,
+                allowanceQuantity: allowanceQty,
+                exceedQuantity: exceedQty
+            })
+        }
+
+        return results
+    }, [supplierProfile, filterMonth, productionLogs])
+
+    const totalExceed = calculatedNotes.reduce((acc, curr) => acc + (curr.exceedQuantity || 0), 0)
 
     return (
         <div className="flex-1 space-y-6">
@@ -58,9 +117,22 @@ export default function SupplierDebitNotesPage() {
             </div>
 
             <Card className="shadow-sm">
-                <CardHeader>
-                    <CardTitle>Debit Note Statements</CardTitle>
-                    <CardDescription>Statement of parts exceeding allowed rejection tolerances.</CardDescription>
+                <CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <CardTitle>Debit Note Statements</CardTitle>
+                        <CardDescription>Statement of parts exceeding allowed rejection tolerances.</CardDescription>
+                    </div>
+                    <div className="flex items-center bg-slate-50 p-2 rounded-lg border">
+                        <div className="grid gap-1">
+                            <Label className="text-[10px] text-slate-500">Month Period</Label>
+                            <input 
+                                type="month" 
+                                value={filterMonth}
+                                onChange={(e) => setFilterMonth(e.target.value)}
+                                className="flex h-8 w-[140px] rounded-md border border-slate-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/20"
+                            />
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -77,14 +149,14 @@ export default function SupplierDebitNotesPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {notes.length === 0 ? (
+                            {calculatedNotes.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={8} className="text-center py-20 text-slate-400 italic">
                                         {loading ? "Fetching statements..." : "No debit notes found. High quality production maintained."}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                notes.map((note) => (
+                                calculatedNotes.map((note) => (
                                     <TableRow key={note.id} className="hover:bg-slate-50/50">
                                         <TableCell className="font-bold text-slate-700">{note.id}</TableCell>
                                         <TableCell className="text-slate-600">{note.partNumber}</TableCell>
@@ -118,4 +190,9 @@ export default function SupplierDebitNotesPage() {
             </div>
         </div>
     )
+}
+
+// Simple label helper
+function Label({ children, className }: { children: React.ReactNode; className?: string }) {
+    return <span className={className}>{children}</span>
 }
