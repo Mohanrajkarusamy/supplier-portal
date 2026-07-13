@@ -400,8 +400,18 @@ export default function SupplierReportsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-slate-400 italic">
-                  No scorecard compiled yet for {selectedMonth}.
+                <div className="space-y-4">
+                  <div className="text-center py-8 text-slate-400 italic">
+                    No official scorecard compiled yet for {selectedMonth}. You can still preview and print the draft report.
+                  </div>
+                  <div className="flex justify-end pt-4 border-t">
+                      <Button 
+                          onClick={handleOpenPrintPreview}
+                          className="bg-primary hover:bg-orange-600 text-white font-medium shadow-sm"
+                      >
+                          <Download className="mr-2 h-4 w-4" /> Download / Print Draft Performance Report (PDF)
+                      </Button>
+                  </div>
                 </div>
               )}
             </CardContent>
