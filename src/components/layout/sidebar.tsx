@@ -29,7 +29,7 @@ export function Sidebar() {
     { href: "/dashboard/supplier/daily", label: "Daily Performance", icon: BarChart3 },
     { href: "/dashboard/supplier/performance-logs", label: "Admin Performance Logs", icon: FileText },
     { href: "/dashboard/supplier/uploads", label: "Document Uploads", icon: Upload },
-    { href: "/dashboard/supplier/reports", label: "My Reports", icon: FileText },
+    { href: "/dashboard/supplier/reports", label: "Reports & Audits", icon: FileText },
     { href: "/dashboard/supplier/issues", label: "Quality Issues", icon: AlertTriangle },
     { href: "/dashboard/supplier/sorting", label: "Sorting & Rework", icon: GitPullRequest },
     { href: "/dashboard/supplier/profile", label: "Company Profile", icon: Settings },
