@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Report, MOCK_REPORTS } from "@/lib/reports"
 import { useLocalStorage } from "@/hooks/use-local-storage"
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts"
 
 export default function SupplierReportsPage() {
   const [currentUser] = useLocalStorage("currentUserId", "SUP001")
