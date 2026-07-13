@@ -15,6 +15,27 @@ import { Report, MOCK_REPORTS } from "@/lib/reports"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts"
 
+const getFinancialYearMonths = (monthStr: string) => {
+  const [yearPart, monthPart] = monthStr.split('-').map(Number)
+  const startYear = monthPart >= 4 ? yearPart : yearPart - 1
+  const months = []
+  for (let m = 4; m <= 15; m++) {
+    const curMonth = m > 12 ? m - 12 : m
+    const curYear = m > 12 ? startYear + 1 : startYear
+    const formattedMonth = String(curMonth).padStart(2, '0')
+    months.push(`${curYear}-${formattedMonth}`)
+  }
+  return months
+}
+
+const formatMonthName = (mStr: string) => {
+  const [year, month] = mStr.split('-')
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  const name = monthNames[Number(month) - 1]
+  const shortYear = year.slice(2)
+  return `${name}-${shortYear}`
+}
+
 export default function SupplierReportsPage() {
   const [currentUser] = useLocalStorage("currentUserId", "SUP001")
   const [allReports] = useLocalStorage<Report[]>("portal_reports", MOCK_REPORTS)
@@ -64,26 +85,7 @@ export default function SupplierReportsPage() {
     setLoadingScorecard(false)
   }
 
-  const getFinancialYearMonths = (monthStr: string) => {
-    const [yearPart, monthPart] = monthStr.split('-').map(Number)
-    const startYear = monthPart >= 4 ? yearPart : yearPart - 1
-    const months = []
-    for (let m = 4; m <= 15; m++) {
-      const curMonth = m > 12 ? m - 12 : m
-      const curYear = m > 12 ? startYear + 1 : startYear
-      const formattedMonth = String(curMonth).padStart(2, '0')
-      months.push(`${curYear}-${formattedMonth}`)
-    }
-    return months
-  }
 
-  const formatMonthName = (mStr: string) => {
-    const [year, month] = mStr.split('-')
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    const name = monthNames[Number(month) - 1]
-    const shortYear = year.slice(2)
-    return `${name}-${shortYear}`
-  }
 
   const handleOpenPrintPreview = async () => {
     setPrintOpen(true)
