@@ -272,8 +272,8 @@ export default function SupplierDebitNotesPage() {
                                                     <TableCell className="py-2 font-semibold font-mono text-xs">{log.date}</TableCell>
                                                     <TableCell className="py-2 text-right font-mono text-xs">{log.dispatch || 0}</TableCell>
                                                     <TableCell className="py-2 text-right font-mono text-xs text-red-600 font-semibold">{log.rejection || 0}</TableCell>
-                                                    <TableCell className="py-2 text-xs text-slate-500 max-w-[200px] truncate" title={log.rejectionRemarks}>
-                                                        {log.rejectionRemarks || log.rejectionDetails || "-"}
+                                                    <TableCell className="py-2 text-xs text-slate-600 max-w-[300px]" title={log.remarks || log.rejectionRemarks}>
+                                                        {log.remarks || log.rejectionRemarks || log.rejectionDetails || "-"}
                                                     </TableCell>
                                                 </TableRow>
                                             ))
