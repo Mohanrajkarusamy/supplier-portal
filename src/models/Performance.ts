@@ -16,7 +16,15 @@ const PerformanceSchema = new Schema({
   redStatusReason: { type: String },
   
   ppm: { type: Number, default: 0 },
-  otd: { type: Number, default: 0 }
+  otd: { type: Number, default: 0 },
+  
+  // E-Sign Approvals
+  qualitySignedBy: { type: String, default: "" },
+  qualitySignedAt: { type: Date },
+  deliverySignedBy: { type: String, default: "" },
+  deliverySignedAt: { type: Date },
+  managementSignedBy: { type: String, default: "" },
+  managementSignedAt: { type: Date }
 }, { timestamps: true });
 
 const Performance = models.Performance || model('Performance', PerformanceSchema);

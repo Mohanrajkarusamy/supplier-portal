@@ -19,6 +19,11 @@ export default function SupplierReportsPage() {
   const [allReports] = useLocalStorage<Report[]>("portal_reports", MOCK_REPORTS)
   const [activeTab, setActiveTab] = useState<"standard" | "requisitions">("standard")
 
+  // Scorecard state
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7))
+  const [scorecard, setScorecard] = useState<any | null>(null)
+  const [loadingScorecard, setLoadingScorecard] = useState(false)
+
   // Requisitions state
   const [requisitions, setRequisitions] = useState<any[]>([])
   const [loadingReqs, setLoadingReqs] = useState(true)
@@ -33,11 +38,28 @@ export default function SupplierReportsPage() {
   // Filter reports
   const reports = allReports.filter(r => (!r.supplierId || r.supplierId === currentUser) && !["R001", "R002", "R003"].includes(r.id))
 
+  const fetchScorecard = async () => {
+    if (!currentUser) return
+    setLoadingScorecard(true)
+    try {
+      const res = await fetch(`/api/reports?month=${selectedMonth}`)
+      if (res.ok) {
+        const data = await res.json()
+        const myRecord = data.find((row: any) => row.supplierId === currentUser)
+        setScorecard(myRecord || null)
+      }
+    } catch (e) {
+      console.error(e)
+    }
+    setLoadingScorecard(false)
+  }
+
   useEffect(() => {
     if (currentUser) {
       fetchRequisitions()
+      fetchScorecard()
     }
-  }, [currentUser])
+  }, [currentUser, selectedMonth])
 
   const fetchRequisitions = async () => {
     setLoadingReqs(true)
@@ -120,11 +142,143 @@ export default function SupplierReportsPage() {
       </div>
 
       {activeTab === "standard" ? (
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Available Performance Reports</CardTitle>
-            <CardDescription>Download compiled quality ratings and delivery summaries.</CardDescription>
-          </CardHeader>
+        <div className="space-y-6">
+          <Card className="shadow-md border-l-4 border-l-primary">
+            <CardHeader className="bg-slate-50/50 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+                <div>
+                  <CardTitle className="text-lg flex items-center">
+                    <TrendingUp className="mr-2 h-5 w-5 text-primary" /> Monthly Performance Evaluation Scorecard
+                  </CardTitle>
+                  <CardDescription>View your Quality, Delivery, and Others score breakdown & approvals.</CardDescription>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-slate-500 font-semibold">Select Evaluation Month:</span>
+                  <Input 
+                    type="month" 
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="w-40 h-8 text-xs bg-white"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              {loadingScorecard ? (
+                <div className="text-center py-8 text-slate-400 italic">Recalculating scorecard...</div>
+              ) : scorecard ? (
+                <div className="space-y-6 text-sm">
+                  {/* Summary row */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 border p-4 rounded-lg items-center">
+                    <div>
+                      <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Your Category</span>
+                      <span className="font-semibold text-slate-700">{scorecard.category || "Pre-Machining"}</span>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Total Evaluation Score</span>
+                      <span className="text-3xl font-extrabold font-mono text-primary">{scorecard.totalScore}/100</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Assigned Grade</span>
+                      <Badge className="bg-primary text-white text-md px-3.5 py-1 font-bold">{scorecard.grade}</Badge>
+                    </div>
+                  </div>
+
+                  {/* Criteria Breakdown */}
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {/* Quality */}
+                    <div className="border rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between border-b pb-1.5 font-bold">
+                        <span className="text-slate-800">1. Quality (60 Marks)</span>
+                        <span className="text-primary font-mono">{scorecard.qualityScore}m</span>
+                      </div>
+                      <p className="text-xs text-slate-500">Log Period PPM Rate</p>
+                      <p className="text-lg font-bold font-mono text-slate-800">{scorecard.ppm.toLocaleString()} PPM</p>
+                    </div>
+
+                    {/* Delivery */}
+                    <div className="border rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between border-b pb-1.5 font-bold">
+                        <span className="text-slate-800">2. Delivery (20 Marks)</span>
+                        <span className="text-primary font-mono">{scorecard.deliveryScore}m</span>
+                      </div>
+                      <p className="text-xs text-slate-500">On-Time Delivery Rate (OTD)</p>
+                      <p className="text-lg font-bold font-mono text-slate-800">{scorecard.otd}%</p>
+                    </div>
+
+                    {/* Others */}
+                    <div className="border rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between border-b pb-1.5 font-bold">
+                        <span className="text-slate-800">3. Others (20 Marks)</span>
+                        <span className="text-primary font-mono">
+                          {scorecard.responsivenessScore + scorecard.auditScore}m
+                        </span>
+                      </div>
+                      <div className="text-xs space-y-1 text-slate-600 pt-1">
+                        <p className="flex justify-between">
+                          <span>4M submission:</span>
+                          <span className="font-semibold">{scorecard.responsivenessScore === 10 ? "Submitted (10m)" : "Delayed (0m)"}</span>
+                        </p>
+                        <p className="flex justify-between">
+                          <span>Premium freight & line stoppage:</span>
+                          <span className="font-semibold">{scorecard.auditScore}m / 10m</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Approvals */}
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="border-b pb-1.5 font-bold text-slate-800">
+                      4. Department E-Sign Status
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                      <div className="border rounded p-2.5 bg-slate-50">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Quality Dept</div>
+                        {scorecard.qualitySignedBy ? (
+                          <div className="text-xs text-green-700 font-semibold mt-1">
+                            ✓ Signed by {scorecard.qualitySignedBy}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-400 italic mt-1">Pending Approval</div>
+                        )}
+                      </div>
+                      <div className="border rounded p-2.5 bg-slate-50">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Delivery/SCM Dept</div>
+                        {scorecard.deliverySignedBy ? (
+                          <div className="text-xs text-green-700 font-semibold mt-1">
+                            ✓ Signed by {scorecard.deliverySignedBy}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-400 italic mt-1">Pending Approval</div>
+                        )}
+                      </div>
+                      <div className="border rounded p-2.5 bg-slate-50">
+                        <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Management</div>
+                        {scorecard.managementSignedBy ? (
+                          <div className="text-xs text-green-700 font-semibold mt-1">
+                            ✓ Signed by {scorecard.managementSignedBy}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-slate-400 italic mt-1">Pending Approval</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-400 italic">
+                  No scorecard compiled yet for {selectedMonth}.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle>Available Performance Reports</CardTitle>
+              <CardDescription>Download compiled quality ratings and delivery summaries.</CardDescription>
+            </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
@@ -167,6 +321,7 @@ export default function SupplierReportsPage() {
             </Table>
           </CardContent>
         </Card>
+      </div>
       ) : (
         <div className="space-y-6">
           <div className="flex justify-between items-center bg-white p-4 rounded-lg border shadow-sm">

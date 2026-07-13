@@ -35,13 +35,40 @@ export default function AdminReportsPage() {
   const [reqUploadOpen, setReqUploadOpen] = useState(false)
   const [selectedReq, setSelectedReq] = useState<any | null>(null)
   
-  // Direct Upload form state
+  // Add Direct Audits/Upload form state
   const [targetSupplierId, setTargetSupplierId] = useState("")
   const [directReportType, setDirectReportType] = useState("")
   const [directPartNumber, setDirectPartNumber] = useState("")
   const [directRemarks, setDirectRemarks] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+
+  // Scorecard Breakdown & E-Sign states
+  const [scorecardDialogOpen, setScorecardDialogOpen] = useState(false)
+  const [selectedScorecard, setSelectedScorecard] = useState<any | null>(null)
+  const [inputSignerName, setInputSignerName] = useState("")
+  const [savingParameters, setSavingParameters] = useState(false)
+
+  const [localResponsiveness, setLocalResponsiveness] = useState(10)
+  const [localPremiumFreight, setLocalPremiumFreight] = useState(5)
+  const [localLineStoppage, setLocalLineStoppage] = useState(5)
+
+  useEffect(() => {
+    if (selectedScorecard) {
+      setLocalResponsiveness(selectedScorecard.responsivenessScore !== undefined ? selectedScorecard.responsivenessScore : 10)
+      const audit = selectedScorecard.auditScore !== undefined ? selectedScorecard.auditScore : 10
+      if (audit === 10) {
+        setLocalPremiumFreight(5)
+        setLocalLineStoppage(5)
+      } else if (audit === 5) {
+        setLocalPremiumFreight(5)
+        setLocalLineStoppage(0)
+      } else {
+        setLocalPremiumFreight(0)
+        setLocalLineStoppage(0)
+      }
+    }
+  }, [selectedScorecard])
 
   useEffect(() => {
     fetchReportData()
@@ -92,6 +119,79 @@ export default function AdminReportsPage() {
 
   const handleExport = () => {
       alert(`Exporting ${filter.reportType} for ${filter.month} (${filter.category})...`)
+  }
+
+  const calculateGrade = (score: number) => {
+      if (score >= 95) return 'A+'
+      if (score >= 90) return 'A'
+      if (score >= 80) return 'B'
+      if (score >= 70) return 'C'
+      return 'D'
+  }
+
+  const handleSaveParameters = async (responsiveness: number, audit: number) => {
+      if (!selectedScorecard) return
+      setSavingParameters(true)
+      try {
+          const res = await fetch('/api/reports', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  supplierId: selectedScorecard.supplierId,
+                  month: filter.month,
+                  ppm: selectedScorecard.ppm,
+                  otd: selectedScorecard.otd,
+                  qualityScore: selectedScorecard.qualityScore,
+                  deliveryScore: selectedScorecard.deliveryScore,
+                  responsivenessScore: responsiveness,
+                  auditScore: audit,
+                  totalScore: selectedScorecard.qualityScore + selectedScorecard.deliveryScore + responsiveness + audit,
+                  grade: calculateGrade(selectedScorecard.qualityScore + selectedScorecard.deliveryScore + responsiveness + audit)
+              })
+          })
+          if (res.ok) {
+              alert("Evaluation parameters updated successfully!")
+              fetchReportData()
+              setScorecardDialogOpen(false)
+          }
+      } catch (e) {
+          console.error(e)
+          alert("Network error: Failed to save scorecard.")
+      }
+      setSavingParameters(false)
+  }
+
+  const handleSignReport = async (dept: "Quality" | "Delivery" | "Management") => {
+      if (!selectedScorecard) return
+      if (!inputSignerName.trim()) {
+          alert("Please enter signer name to authorize.")
+          return
+      }
+      try {
+          const body: any = {
+              supplierId: selectedScorecard.supplierId,
+              month: filter.month,
+              signerName: inputSignerName
+          }
+          if (dept === "Quality") body.signQuality = true
+          if (dept === "Delivery") body.signDelivery = true
+          if (dept === "Management") body.signManagement = true
+
+          const res = await fetch('/api/reports', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+          })
+          if (res.ok) {
+              alert(`Report successfully authorized with e-sign by ${signerName || inputSignerName} (${dept} Department)!`)
+              fetchReportData()
+              setScorecardDialogOpen(false)
+              setInputSignerName("")
+          }
+      } catch (e) {
+          console.error(e)
+          alert("Network error: Signing failed.")
+      }
   }
 
   // Handle direct audit report upload (POST)
@@ -378,8 +478,16 @@ export default function AdminReportsPage() {
                                           </Badge>
                                       </TableCell>
                                       <TableCell className="text-right">
-                                          <Button variant="ghost" size="sm" className="h-8">
-                                              <FileText className="h-4 w-4 mr-1" /> Profile
+                                          <Button 
+                                              variant="ghost" 
+                                              size="sm" 
+                                              className="h-8 text-primary hover:bg-orange-50 hover:text-primary font-semibold"
+                                              onClick={() => {
+                                                  setSelectedScorecard(row)
+                                                  setScorecardDialogOpen(true)
+                                              }}
+                                          >
+                                              <FileText className="h-4 w-4 mr-1" /> View Report
                                           </Button>
                                       </TableCell>
                                   </TableRow>
@@ -613,6 +721,241 @@ export default function AdminReportsPage() {
             </DialogFooter>
           </form>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={scorecardDialogOpen} onOpenChange={setScorecardDialogOpen}>
+          <DialogContent className="max-w-3xl border-t-4 border-t-primary max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                  <DialogTitle className="text-xl font-bold text-slate-800">
+                      Monthly Supplier Performance Evaluation
+                  </DialogTitle>
+                  <DialogDescription>
+                      Performance scorecard audit & authorization for {selectedScorecard?.supplierName} ({selectedScorecard?.supplierId}) - {filter.month}
+                  </DialogDescription>
+              </DialogHeader>
+
+              {selectedScorecard && (
+                  <div className="space-y-6 py-2 text-sm">
+                      {/* Grade & Score Summary Bar */}
+                      <div className="flex justify-between items-center bg-slate-50 border p-4 rounded-lg">
+                          <div>
+                              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Supplier Category</span>
+                              <span className="font-semibold text-slate-700">{selectedScorecard.category || "Pre-Machining"}</span>
+                          </div>
+                          <div className="text-center">
+                              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Total Evaluation Score</span>
+                              <span className="text-3xl font-extrabold font-mono text-primary">
+                                  {selectedScorecard.qualityScore + selectedScorecard.deliveryScore + localResponsiveness + (localPremiumFreight + localLineStoppage)}/100
+                              </span>
+                          </div>
+                          <div className="text-right">
+                              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider block">Assigned Grade</span>
+                              <Badge className="bg-primary text-white text-md px-3.5 py-1 font-bold">
+                                  {calculateGrade(selectedScorecard.qualityScore + selectedScorecard.deliveryScore + localResponsiveness + (localPremiumFreight + localLineStoppage))}
+                              </Badge>
+                          </div>
+                      </div>
+
+                      {/* 1. Quality Performance */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                          <div className="flex justify-between border-b pb-2">
+                              <h3 className="font-bold text-slate-800">1. Quality Performance (60 Marks)</h3>
+                              <span className="font-mono font-bold text-slate-700">{selectedScorecard.qualityScore} / 60 Marks</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <p className="text-xs text-slate-500">Log Period PPM Rate</p>
+                                  <p className="text-lg font-bold font-mono text-slate-800">{selectedScorecard.ppm.toLocaleString()} PPM</p>
+                              </div>
+                              <div>
+                                  <p className="text-xs text-slate-500">Methodology Bracket</p>
+                                  <p className="text-xs text-slate-600 mt-1 italic leading-normal text-slate-500">
+                                      {selectedScorecard.category === "Child-Part" 
+                                          ? "Child-Parts: 0 PPM = 60 | 1-10 PPM = 50 | 11-20 PPM = 40 | 21-30 PPM = 30 | 31-40 PPM = 20 | >40 PPM = 0"
+                                          : "Pre-Machining: <=2000 PPM = 60 | 2001-2500 = 50 | 2501-3000 = 40 | 3001-4000 = 30 | 4001-5000 = 20 | >5000 = 0"
+                                      }
+                                  </p>
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* 2. Delivery Performance */}
+                      <div className="border rounded-lg p-4 space-y-3">
+                          <div className="flex justify-between border-b pb-2">
+                              <h3 className="font-bold text-slate-800">2. Delivery Performance (20 Marks)</h3>
+                              <span className="font-mono font-bold text-slate-700">{selectedScorecard.deliveryScore} / 20 Marks</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <p className="text-xs text-slate-500">On-Time Delivery Rate (OTD)</p>
+                                  <p className="text-lg font-bold font-mono text-slate-800">{selectedScorecard.otd}%</p>
+                              </div>
+                              <div>
+                                  <p className="text-xs text-slate-500">Methodology Bracket</p>
+                                  <p className="text-xs text-slate-600 mt-1 italic leading-normal text-slate-500">
+                                      Common: 100% = 20 | 95-99% = 15 | 90-94% = 10 | 85-89% = 5 | 80-84% = 2 | &lt;80% = 0
+                                  </p>
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* 3. Others (20 Marks) */}
+                      <div className="border rounded-lg p-4 space-y-4 bg-slate-50/50">
+                          <div className="flex justify-between border-b pb-2">
+                              <h3 className="font-bold text-slate-800">3. Others (20 Marks)</h3>
+                              <span className="font-mono font-bold text-slate-700">
+                                  {localResponsiveness + localPremiumFreight + localLineStoppage} / 20 Marks
+                              </span>
+                          </div>
+                          <div className="grid md:grid-cols-3 gap-4">
+                              <div className="grid gap-1">
+                                  <Label className="text-xs text-slate-500 font-semibold">4M Change Submission (10m)</Label>
+                                  <Select 
+                                      value={String(localResponsiveness)} 
+                                      onValueChange={(val) => setLocalResponsiveness(Number(val))}
+                                  >
+                                      <SelectTrigger className="bg-white text-xs h-9">
+                                          <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="10">Submitted on Time (10m)</SelectItem>
+                                          <SelectItem value="0">Delayed / Not Submitted (0m)</SelectItem>
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                              <div className="grid gap-1">
+                                  <Label className="text-xs text-slate-500 font-semibold">Premium Freight (5m)</Label>
+                                  <Select 
+                                      value={String(localPremiumFreight)} 
+                                      onValueChange={(val) => setLocalPremiumFreight(Number(val))}
+                                  >
+                                      <SelectTrigger className="bg-white text-xs h-9">
+                                          <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="5">Nil (5m)</SelectItem>
+                                          <SelectItem value="0">Used (0m)</SelectItem>
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                              <div className="grid gap-1">
+                                  <Label className="text-xs text-slate-500 font-semibold">Line Stoppage (5m)</Label>
+                                  <Select 
+                                      value={String(localLineStoppage)} 
+                                      onValueChange={(val) => setLocalLineStoppage(Number(val))}
+                                  >
+                                      <SelectTrigger className="bg-white text-xs h-9">
+                                          <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="5">Nil (5m)</SelectItem>
+                                          <SelectItem value="0">Occurred (0m)</SelectItem>
+                                      </SelectContent>
+                                  </Select>
+                              </div>
+                          </div>
+                          <div className="flex justify-end pt-1">
+                              <Button 
+                                  onClick={() => handleSaveParameters(localResponsiveness, localPremiumFreight + localLineStoppage)}
+                                  disabled={savingParameters}
+                                  className="bg-slate-800 text-white text-xs h-8 px-4"
+                              >
+                                  {savingParameters ? "Saving..." : "Save Parameters"}
+                              </Button>
+                          </div>
+                      </div>
+
+                      {/* 4. Department E-Sign Approvals */}
+                      <div className="border rounded-lg p-4 space-y-4">
+                          <div className="border-b pb-2">
+                              <h3 className="font-bold text-slate-800">4. Department E-Sign Authorization</h3>
+                          </div>
+                          
+                          <div className="grid md:grid-cols-3 gap-4">
+                              {/* Quality Approval */}
+                              <div className="border rounded p-3 flex flex-col justify-between text-center bg-slate-50 h-32">
+                                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quality Dept</div>
+                                  {selectedScorecard.qualitySignedBy ? (
+                                      <div className="text-xs space-y-1">
+                                          <p className="font-semibold text-green-700">✓ Authorized</p>
+                                          <p className="font-mono text-[10px] text-slate-500">{selectedScorecard.qualitySignedBy}</p>
+                                          <p className="text-[10px] text-slate-400">{new Date(selectedScorecard.qualitySignedAt).toLocaleDateString()}</p>
+                                      </div>
+                                  ) : (
+                                      <Button 
+                                          onClick={() => handleSignReport("Quality")}
+                                          variant="outline" 
+                                          size="sm"
+                                          className="border-primary text-primary hover:bg-orange-50 text-[11px]"
+                                      >
+                                          Authorize Quality
+                                      </Button>
+                                  )}
+                              </div>
+
+                              {/* SCM / Delivery Approval */}
+                              <div className="border rounded p-3 flex flex-col justify-between text-center bg-slate-50 h-32">
+                                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Delivery/SCM Dept</div>
+                                  {selectedScorecard.deliverySignedBy ? (
+                                      <div className="text-xs space-y-1">
+                                          <p className="font-semibold text-green-700">✓ Authorized</p>
+                                          <p className="font-mono text-[10px] text-slate-500">{selectedScorecard.deliverySignedBy}</p>
+                                          <p className="text-[10px] text-slate-400">{new Date(selectedScorecard.deliverySignedAt).toLocaleDateString()}</p>
+                                      </div>
+                                  ) : (
+                                      <Button 
+                                          onClick={() => handleSignReport("Delivery")}
+                                          variant="outline" 
+                                          size="sm"
+                                          className="border-primary text-primary hover:bg-orange-50 text-[11px]"
+                                      >
+                                          Authorize SCM
+                                      </Button>
+                                  )}
+                              </div>
+
+                              {/* Management Approval */}
+                              <div className="border rounded p-3 flex flex-col justify-between text-center bg-slate-50 h-32">
+                                  <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Management</div>
+                                  {selectedScorecard.managementSignedBy ? (
+                                      <div className="text-xs space-y-1">
+                                          <p className="font-semibold text-green-700">✓ Authorized</p>
+                                          <p className="font-mono text-[10px] text-slate-500">{selectedScorecard.managementSignedBy}</p>
+                                          <p className="text-[10px] text-slate-400">{new Date(selectedScorecard.managementSignedAt).toLocaleDateString()}</p>
+                                      </div>
+                                  ) : (
+                                      <Button 
+                                          onClick={() => handleSignReport("Management")}
+                                          variant="outline" 
+                                          size="sm"
+                                          className="border-primary text-primary hover:bg-orange-50 text-[11px]"
+                                      >
+                                          Authorize Mgmt
+                                      </Button>
+                                  )}
+                              </div>
+                          </div>
+
+                          {/* Signer input name if any department needs signing */}
+                          {(!selectedScorecard.qualitySignedBy || !selectedScorecard.deliverySignedBy || !selectedScorecard.managementSignedBy) && (
+                              <div className="grid gap-1 pt-2">
+                                  <Label className="text-xs font-semibold text-slate-700">Authorized Signatory Name</Label>
+                                  <Input 
+                                      placeholder="Enter your full name to execute e-sign" 
+                                      value={inputSignerName}
+                                      onChange={(e) => setInputSignerName(e.target.value)}
+                                      className="h-9 text-xs"
+                                  />
+                              </div>
+                          )}
+                      </div>
+                  </div>
+              )}
+
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setScorecardDialogOpen(false)}>Close</Button>
+              </DialogFooter>
+          </DialogContent>
       </Dialog>
     </div>
   )

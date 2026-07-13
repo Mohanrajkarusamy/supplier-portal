@@ -174,11 +174,23 @@ export async function GET(request: Request) {
       
       results.push({
         supplierId: supplier.id,
+        supplierName: supplier.name,
+        category: supplier.category,
         ppm,
         otd,
+        qualityScore: qScore,
+        deliveryScore: dScore,
+        responsivenessScore,
+        auditScore,
         totalScore,
         grade,
-        isRedStatus: isChildPart ? (ppm > 40 || otd < 80) : (ppm > 5000 || otd < 80)
+        isRedStatus: isChildPart ? (ppm > 40 || otd < 80) : (ppm > 5000 || otd < 80),
+        qualitySignedBy: pRecord?.qualitySignedBy || "",
+        qualitySignedAt: pRecord?.qualitySignedAt || null,
+        deliverySignedBy: pRecord?.deliverySignedBy || "",
+        deliverySignedAt: pRecord?.deliverySignedAt || null,
+        managementSignedBy: pRecord?.managementSignedBy || "",
+        managementSignedAt: pRecord?.managementSignedAt || null
       });
     }
 
@@ -186,5 +198,80 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error(error);
     return NextResponse.json({ success: false, error }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    await connectDB();
+    const body = await request.json();
+    const { 
+      supplierId, 
+      month, 
+      qualityScore, 
+      deliveryScore, 
+      responsivenessScore, 
+      auditScore, 
+      totalScore, 
+      grade, 
+      ppm, 
+      otd,
+      isRedStatus,
+      signQuality,
+      signDelivery,
+      signManagement,
+      signerName
+    } = body;
+
+    if (!supplierId || !month) {
+      return NextResponse.json({ success: false, message: 'Supplier ID and month are required' }, { status: 400 });
+    }
+
+    let pRecord = await Performance.findOne({ supplierId, month });
+    
+    if (!pRecord) {
+      pRecord = new Performance({
+        supplierId,
+        month,
+        qualityScore: qualityScore !== undefined ? qualityScore : 0,
+        deliveryScore: deliveryScore !== undefined ? deliveryScore : 0,
+        responsivenessScore: responsivenessScore !== undefined ? responsivenessScore : 10,
+        auditScore: auditScore !== undefined ? auditScore : 10,
+        totalScore: totalScore !== undefined ? totalScore : 80,
+        grade: grade || 'B',
+        ppm: ppm || 0,
+        otd: otd || 100,
+        isRedStatus: isRedStatus || false
+      });
+    } else {
+      if (qualityScore !== undefined) pRecord.qualityScore = qualityScore;
+      if (deliveryScore !== undefined) pRecord.deliveryScore = deliveryScore;
+      if (responsivenessScore !== undefined) pRecord.responsivenessScore = responsivenessScore;
+      if (auditScore !== undefined) pRecord.auditScore = auditScore;
+      if (totalScore !== undefined) pRecord.totalScore = totalScore;
+      if (grade !== undefined) pRecord.grade = grade;
+      if (ppm !== undefined) pRecord.ppm = ppm;
+      if (otd !== undefined) pRecord.otd = otd;
+      if (isRedStatus !== undefined) pRecord.isRedStatus = isRedStatus;
+    }
+
+    if (signQuality) {
+      pRecord.qualitySignedBy = signerName || "Quality Admin";
+      pRecord.qualitySignedAt = new Date();
+    }
+    if (signDelivery) {
+      pRecord.deliverySignedBy = signerName || "SCM Admin";
+      pRecord.deliverySignedAt = new Date();
+    }
+    if (signManagement) {
+      pRecord.managementSignedBy = signerName || "Management Admin";
+      pRecord.managementSignedAt = new Date();
+    }
+
+    await pRecord.save();
+    return NextResponse.json({ success: true, performance: pRecord });
+  } catch (error: any) {
+    console.error(error);
+    return NextResponse.json({ success: false, message: error.message || error }, { status: 500 });
   }
 }
