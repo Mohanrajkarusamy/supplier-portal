@@ -18,7 +18,7 @@ export function Sidebar() {
     { href: "/dashboard/admin/performance-logs", label: "Performance Logs", icon: FileText },
     { href: "/dashboard/admin/supplier-logs", label: "Supplier Logs", icon: FileText },
     { href: "/dashboard/admin/upload", label: "Data Upload", icon: Upload },
-    { href: "/dashboard/admin/reports", label: "Reports", icon: FileText },
+    { href: "/dashboard/admin/reports", label: "Reports & Audits", icon: FileText },
     { href: "/dashboard/admin/debit-notes", label: "Debit Notes", icon: IndianRupee },
     { href: "/dashboard/admin/sorting", label: "Sorting & Rework", icon: GitPullRequest },
     { href: "/dashboard/admin/settings", label: "Settings", icon: Settings },

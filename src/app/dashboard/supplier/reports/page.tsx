@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileText, Download, Search, Plus, FileSpreadsheet, FileCheck2, ShieldCheck, Clock, Send, TrendingUp } from "lucide-react"
+import { FileText, Download, Search, Plus, FileSpreadsheet, FileCheck2, ShieldCheck, Clock, Send, TrendingUp, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -252,7 +252,7 @@ export default function SupplierReportsPage() {
             onClick={() => setActiveTab("standard")}
             className="rounded-md"
           >
-            <FileSpreadsheet className="h-4 w-4 mr-2" /> General Reports
+            <BarChart3 className="h-4 w-4 mr-2" /> PPM & Ratings
           </Button>
           <Button 
             variant={activeTab === "requisitions" ? "default" : "ghost"}
