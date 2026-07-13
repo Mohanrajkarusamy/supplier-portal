@@ -420,7 +420,7 @@ export default function AdminReportsPage() {
                                       <TableHead>PPM Score</TableHead>
                                       <TableHead>OTD Rate</TableHead>
                                       <TableHead>Overall Score</TableHead>
-                                      <TableHead>Quality Grade</TableHead>
+                                      <TableHead>Evaluation Rank</TableHead>
                                       <TableHead className="text-right">Action</TableHead>
                                   </>
                               )}
@@ -472,10 +472,8 @@ export default function AdminReportsPage() {
                                       </TableCell>
                                       <TableCell>{row.otd}%</TableCell>
                                       <TableCell className="font-bold">{row.totalScore}</TableCell>
-                                      <TableCell>
-                                          <Badge variant={row.grade === 'A+' ? 'default' : row.grade === 'D' ? 'destructive' : 'outline'} className={row.grade === 'A+' ? 'bg-green-600' : ''}>
-                                              {row.grade}
-                                          </Badge>
+                                      <TableCell className="font-bold text-blue-600">
+                                          #{i + 1}
                                       </TableCell>
                                       <TableCell className="text-right">
                                           <Button 

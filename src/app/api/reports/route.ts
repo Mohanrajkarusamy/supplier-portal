@@ -194,6 +194,8 @@ export async function GET(request: Request) {
       });
     }
 
+    results.sort((a, b) => b.totalScore - a.totalScore);
+
     return NextResponse.json(results);
   } catch (error) {
     console.error(error);
