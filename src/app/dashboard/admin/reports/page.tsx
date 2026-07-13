@@ -12,6 +12,28 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts"
+
+const getFinancialYearMonths = (monthStr: string) => {
+  const [yearPart, monthPart] = monthStr.split('-').map(Number)
+  const startYear = monthPart >= 4 ? yearPart : yearPart - 1
+  const months = []
+  for (let m = 4; m <= 15; m++) {
+    const curMonth = m > 12 ? m - 12 : m
+    const curYear = m > 12 ? startYear + 1 : startYear
+    const formattedMonth = String(curMonth).padStart(2, '0')
+    months.push(`${curYear}-${formattedMonth}`)
+  }
+  return months
+}
+
+const formatMonthName = (mStr: string) => {
+  const [year, month] = mStr.split('-')
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  const name = monthNames[Number(month) - 1]
+  const shortYear = year.slice(2)
+  return `${name}-${shortYear}`
+}
 
 export default function AdminReportsPage() {
   const [activeTab, setActiveTab] = useState<"analytics" | "requisitions">("analytics")
@@ -52,6 +74,106 @@ export default function AdminReportsPage() {
   const [localResponsiveness, setLocalResponsiveness] = useState(10)
   const [localPremiumFreight, setLocalPremiumFreight] = useState(5)
   const [localLineStoppage, setLocalLineStoppage] = useState(5)
+
+  // Printable Report States
+  const [printOpen, setPrintOpen] = useState(false)
+  const [supplierDetails, setSupplierDetails] = useState<any | null>(null)
+  const [allYearLogs, setAllYearLogs] = useState<any[]>([])
+  const [allYearScorecards, setAllYearScorecards] = useState<any[]>([])
+  const [loadingPrintData, setLoadingPrintData] = useState(false)
+
+  const fyMonths = getFinancialYearMonths(filter.month)
+
+  const handleOpenPrintPreview = async (supplierId: string) => {
+    setPrintOpen(true)
+    setLoadingPrintData(true)
+    try {
+      const supRes = await fetch(`/api/suppliers?id=${supplierId}`)
+      if (supRes.ok) {
+        setSupplierDetails(await supRes.json())
+      }
+
+      const prodRes = await fetch(`/api/production?supplierId=${supplierId}&enteredBy=Admin`)
+      if (prodRes.ok) {
+        setAllYearLogs(await prodRes.json())
+      }
+
+      const fyMonths = getFinancialYearMonths(filter.month)
+      const fetchedScorecards = []
+      for (const m of fyMonths) {
+        const scoreRes = await fetch(`/api/reports?month=${m}`)
+        if (scoreRes.ok) {
+          const list = await scoreRes.json()
+          const rec = list.find((row: any) => row.supplierId === supplierId)
+          if (rec) {
+            fetchedScorecards.push({ ...rec, month: m })
+          } else {
+            fetchedScorecards.push({
+              month: m,
+              supplierId: supplierId,
+              ppm: 0,
+              otd: 100,
+              qualityScore: 60,
+              deliveryScore: 20,
+              responsivenessScore: 10,
+              auditScore: 10,
+              totalScore: 100,
+              grade: 'A+'
+            })
+          }
+        }
+      }
+      setAllYearScorecards(fetchedScorecards)
+    } catch (e) {
+      console.error(e)
+    }
+    setLoadingPrintData(false)
+  }
+
+  const getMonthlyStats = (mStr: string) => {
+    const logs = allYearLogs.filter(log => log.date.startsWith(mStr))
+    const partsSupplied = logs.reduce((sum, l) => sum + (l.dispatch || 0), 0)
+    const rejectionQty = logs.reduce((sum, l) => sum + (l.rejection || 0), 0)
+    const partsPlanned = logs.reduce((sum, l) => sum + (l.plannedQty || 0), 0)
+    const ppm = partsSupplied > 0 ? Math.round((rejectionQty / partsSupplied) * 1000000) : 0
+    const otd = partsPlanned > 0 ? Math.min(100, Math.round((partsSupplied / partsPlanned) * 100)) : 100
+    
+    const sc = allYearScorecards.find(s => s.month === mStr) || {
+      responsivenessScore: 10,
+      auditScore: 10,
+      totalScore: 100,
+      grade: 'A+'
+    }
+
+    let premiumFreight = 0
+    let lineStoppage = 0
+    if (sc.auditScore === 10) {
+      premiumFreight = 0
+      lineStoppage = 0
+    } else if (sc.auditScore === 5) {
+      premiumFreight = 0
+      lineStoppage = 1
+    } else if (sc.auditScore === 0) {
+      premiumFreight = 1
+      lineStoppage = 1
+    }
+
+    return {
+      monthLabel: formatMonthName(mStr),
+      partsSupplied,
+      rejectionQty,
+      ppm,
+      partsPlanned,
+      otd,
+      responsiveness: sc.responsivenessScore === 10 ? "Yes" : "No",
+      premiumFreight,
+      lineStoppage,
+      totalScore: sc.totalScore,
+      grade: sc.grade,
+      targetPpm: selectedScorecard?.category === "Child-Part" ? 40 : 2000,
+      targetDelivery: 100
+    }
+  }
 
   useEffect(() => {
     if (selectedScorecard) {
@@ -950,10 +1072,450 @@ export default function AdminReportsPage() {
                   </div>
               )}
 
-              <DialogFooter>
+              <DialogFooter className="flex justify-between items-center w-full">
+                  {selectedScorecard && (
+                      <Button 
+                          onClick={() => handleOpenPrintPreview(selectedScorecard.supplierId)}
+                          className="bg-primary hover:bg-orange-600 text-white font-medium shadow-sm"
+                      >
+                          <Download className="mr-2 h-4 w-4" /> Download / Print Official Performance Report (PDF)
+                      </Button>
+                  )}
                   <Button variant="outline" onClick={() => setScorecardDialogOpen(false)}>Close</Button>
               </DialogFooter>
           </DialogContent>
+      </Dialog>
+
+      <Dialog open={printOpen} onOpenChange={setPrintOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto no-print">
+          <DialogHeader className="no-print">
+            <DialogTitle>Print / Save Official Monthly Report</DialogTitle>
+            <DialogDescription>
+              Preview and save the official SAKTHI AUTO Monthly Performance Report as a high-fidelity PDF document.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingPrintData ? (
+            <div className="text-center py-12 text-slate-400 italic no-print">Loading report data...</div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-end space-x-2 no-print pb-2 border-b">
+                <Button 
+                  onClick={() => window.print()}
+                  className="bg-primary hover:bg-orange-600 text-white font-medium"
+                >
+                  <Download className="mr-2 h-4 w-4" /> Print / Save as PDF
+                </Button>
+                <Button variant="outline" onClick={() => setPrintOpen(false)}>
+                  Close
+                </Button>
+              </div>
+
+              {/* Printable container */}
+              <div id="print-scorecard-document" className="bg-white text-black p-8 font-sans border shadow-sm mx-auto" style={{ width: '210mm', minHeight: '297mm' }}>
+                <style dangerouslySetInnerHTML={{__html: `
+                  @media print {
+                    body * {
+                      visibility: hidden !important;
+                    }
+                    #print-scorecard-document, #print-scorecard-document * {
+                      visibility: visible !important;
+                    }
+                    #print-scorecard-document {
+                      position: absolute !important;
+                      left: 0 !important;
+                      top: 0 !important;
+                      width: 100% !important;
+                      padding: 0 !important;
+                      margin: 0 !important;
+                      border: none !important;
+                      box-shadow: none !important;
+                    }
+                    .no-print {
+                      display: none !important;
+                    }
+                    .page-break {
+                      page-break-before: always !important;
+                      break-before: page !important;
+                    }
+                  }
+                  .report-table th, .report-table td {
+                    border: 1px solid black !important;
+                    padding: 4px 6px !important;
+                    font-size: 10px !important;
+                    text-align: center !important;
+                  }
+                `}} />
+
+                {/* ================= PAGE 1 ================= */}
+                <div className="space-y-4 flex flex-col justify-between" style={{ minHeight: '280mm' }}>
+                  <div>
+                    {/* Header */}
+                    <div className="border border-black flex items-stretch h-16">
+                      <div className="w-1/4 border-r border-black p-2 flex flex-col justify-center items-center bg-slate-50">
+                        <span className="text-orange-600 font-extrabold text-lg tracking-wider">SAKTHI</span>
+                        <span className="text-slate-800 font-bold text-sm -mt-1 tracking-widest">AUTO</span>
+                      </div>
+                      <div className="w-3/4 flex items-center justify-center font-bold text-md tracking-wider bg-slate-50 text-slate-800">
+                        SUPPLIER MONTHLY PERFORMANCE REPORT
+                      </div>
+                    </div>
+
+                    {/* Address block */}
+                    <div className="mt-6 text-[11px] leading-relaxed flex justify-between">
+                      <div>
+                        <p className="font-bold">To:</p>
+                        <p className="font-bold text-slate-800 uppercase mt-1">{supplierDetails?.name || "NSK BEARINGS MANUFACTURING INDIA PVT LTD."}</p>
+                        <p className="text-slate-600 max-w-sm whitespace-pre-line mt-0.5">{supplierDetails?.address || "PLOT No - A2,\nSIPCOT ORAGADAM GROWTH CENTRE,\nMATHUR VILLAGE,\nSRIPERUMBUDUR- 602105."}</p>
+                        <p className="font-bold text-slate-700 mt-2">KIND ATTN. : Mr.{supplierDetails?.contactPerson || "SUKUMAR PALURU"}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest border border-red-600 px-2 py-0.5 rounded">CONFIDENTIAL</span>
+                      </div>
+                    </div>
+
+                    {/* Sub Line */}
+                    <div className="mt-6 border-b border-slate-300 pb-2">
+                      <p className="font-bold text-sm text-slate-800">
+                        Sub : Quality & Delivery Performance for {filter.month ? formatMonthName(filter.month).toUpperCase() : "JANUARY - 2026"}
+                      </p>
+                    </div>
+
+                    {/* Salutation */}
+                    <div className="mt-4 text-[11px]">
+                      <p>Dear Sir,</p>
+                      <p className="mt-1">Kindly note the Quality & Delivery performance of your company vis-a-vis our targets :</p>
+                    </div>
+
+                    {/* Overview Table */}
+                    <table className="w-full mt-4 report-table border-collapse">
+                      <thead>
+                        <tr className="bg-slate-100">
+                          <th colSpan={5} className="font-bold text-slate-700">QUALITY</th>
+                          <th colSpan={4} className="font-bold text-slate-700">DELIVERY</th>
+                          <th colSpan={2} className="font-bold text-slate-700">PERFORMANCE</th>
+                        </tr>
+                        <tr className="bg-slate-50 text-[9px]">
+                          <th>No.of Parts Supplied</th>
+                          <th>No.of Problem Reported</th>
+                          <th>Rejection Qty</th>
+                          <th>PPM</th>
+                          <th>4M Summary</th>
+                          <th>No.of Parts Planned</th>
+                          <th>Delivery Performance</th>
+                          <th>Premium Freight</th>
+                          <th>Line Stoppage</th>
+                          <th>Mark</th>
+                          <th>Rank</th>
+                        </tr>
+                        <tr className="text-[8px] text-slate-500 bg-white">
+                          <td>A</td>
+                          <td>B</td>
+                          <td>C</td>
+                          <td>(C/A) x 1000000</td>
+                          <td>Ontime submission Yes / No</td>
+                          <td>D</td>
+                          <td>(A/D) x 100</td>
+                          <td>No.of Occurrence</td>
+                          <td>No.of Occurrence</td>
+                          <td>Target - 100</td>
+                          <td>Rank / Out of</td>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const currentStats = selectedScorecard ? getMonthlyStats(filter.month) : {
+                            partsSupplied: 6144,
+                            rejectionQty: 0,
+                            ppm: 0,
+                            partsPlanned: 6144,
+                            otd: 100,
+                            responsiveness: "No",
+                            premiumFreight: 0,
+                            lineStoppage: 0,
+                            totalScore: 90,
+                            grade: "B"
+                          };
+                          return (
+                            <tr className="font-bold text-slate-800">
+                              <td>{currentStats.partsSupplied}</td>
+                              <td>0</td>
+                              <td>{currentStats.rejectionQty}</td>
+                              <td>{currentStats.ppm}</td>
+                              <td>{currentStats.responsiveness}</td>
+                              <td>{currentStats.partsPlanned}</td>
+                              <td>{currentStats.otd}%</td>
+                              <td>{currentStats.premiumFreight}</td>
+                              <td>{currentStats.lineStoppage}</td>
+                              <td className="text-primary font-extrabold">{currentStats.totalScore}</td>
+                              <td className="text-blue-600 font-extrabold">1 / 8</td>
+                            </tr>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+
+                    {/* Twin Line Charts */}
+                    <div className="grid grid-cols-2 gap-4 mt-8">
+                      <div className="border p-2 rounded bg-white">
+                        <p className="text-[10px] font-bold text-slate-700 text-center mb-1">QUALITY PERFORMANCE</p>
+                        <div className="h-44 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={fyMonths.map(m => getMonthlyStats(m))}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="monthLabel" tick={{ fontSize: 7 }} />
+                              <YAxis tick={{ fontSize: 7 }} />
+                              <Tooltip />
+                              <Legend wrapperStyle={{ fontSize: 8 }} />
+                              <Line type="monotone" dataKey="ppm" stroke="#22c55e" strokeWidth={1.5} name="Actual PPM" activeDot={{ r: 4 }} />
+                              <Line type="monotone" dataKey="targetPpm" stroke="#2563eb" strokeWidth={1.5} name="Target PPM" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      <div className="border p-2 rounded bg-white">
+                        <p className="text-[10px] font-bold text-slate-700 text-center mb-1">DELIVERY PERFORMANCE</p>
+                        <div className="h-44 w-full">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={fyMonths.map(m => getMonthlyStats(m))}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="monthLabel" tick={{ fontSize: 7 }} />
+                              <YAxis domain={[0, 120]} tick={{ fontSize: 7 }} />
+                              <Tooltip />
+                              <Legend wrapperStyle={{ fontSize: 8 }} />
+                              <Line type="monotone" dataKey="otd" stroke="#22c55e" strokeWidth={1.5} name="Delivery Performance" activeDot={{ r: 4 }} />
+                              <Line type="monotone" dataKey="targetDelivery" stroke="#2563eb" strokeWidth={1.5} name="Target %" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sign-off footer */}
+                  <div className="border-t pt-4 text-[10px] space-y-4">
+                    <p className="italic text-slate-500">This is for your information and records.</p>
+                    <div className="flex justify-between items-end pt-4">
+                      <div>
+                        <p className="font-semibold">Yours faithfully,</p>
+                        <p className="font-bold text-slate-800 mt-1">For Sakthi Auto Component Limited</p>
+                        <div className="h-10 mt-2 flex items-center">
+                          {selectedScorecard?.qualitySignedBy && (
+                            <span className="font-mono text-[9px] text-green-700 border border-green-300 bg-green-50 px-2 py-0.5 rounded">
+                              Digitally signed by: {selectedScorecard.qualitySignedBy}
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-bold text-slate-800 mt-1">K.G.MOHANASUNDARAM - GM (QA & CR)</p>
+                        <p className="text-slate-500">QUALITY HEAD</p>
+                      </div>
+                      <div className="text-right text-[8px] text-slate-400">
+                        <p>QF/07/MID - 17, Rev.No:01 dt 01.10.2020</p>
+                        <p className="font-bold text-slate-800 mt-0.5">Page 01 of 02</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ================= PAGE 2 ================= */}
+                <div className="page-break pt-8 space-y-6 flex flex-col justify-between" style={{ minHeight: '280mm' }}>
+                  <div>
+                    {/* Header */}
+                    <div className="border border-black flex items-stretch h-16">
+                      <div className="w-1/4 border-r border-black p-2 flex flex-col justify-center items-center bg-slate-50">
+                        <span className="text-orange-600 font-extrabold text-lg tracking-wider">SAKTHI</span>
+                        <span className="text-slate-800 font-bold text-sm -mt-1 tracking-widest">AUTO</span>
+                      </div>
+                      <div className="w-3/4 flex items-center justify-center font-bold text-md tracking-wider bg-slate-50 text-slate-800">
+                        SUPPLIER MONTHLY PERFORMANCE REPORT
+                      </div>
+                    </div>
+
+                    <div className="mt-4 text-xs font-bold text-slate-800 uppercase">
+                      SUPPLIER NAME : {supplierDetails?.name || "NSK BEARINGS MANUFACTURING INDIA PVT LTD."}
+                    </div>
+
+                    {/* 1. Quality Month-by-month table */}
+                    <div className="mt-4 space-y-1">
+                      <p className="text-[10px] font-bold bg-slate-800 text-white px-2 py-0.5 rounded">QUALITY PERFORMANCE</p>
+                      <table className="w-full report-table border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 font-bold">
+                            <th className="text-left">Month</th>
+                            {fyMonths.map(m => <th key={m}>{formatMonthName(m)}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="text-left font-semibold">No.of Parts Supplied</td>
+                            {fyMonths.map(m => <td key={m}>{getMonthlyStats(m).partsSupplied}</td>)}
+                          </tr>
+                          <tr>
+                            <td className="text-left font-semibold">Rejection Qty</td>
+                            {fyMonths.map(m => <td key={m}>{getMonthlyStats(m).rejectionQty}</td>)}
+                          </tr>
+                          <tr className="font-bold text-slate-800 bg-slate-50/50">
+                            <td className="text-left">Actual PPM</td>
+                            {fyMonths.map(m => <td key={m}>{getMonthlyStats(m).ppm}</td>)}
+                          </tr>
+                          <tr className="text-slate-500">
+                            <td className="text-left">Target PPM</td>
+                            {fyMonths.map(m => <td key={m}>0</td>)}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 2. Delivery Month-by-month table */}
+                    <div className="mt-4 space-y-1">
+                      <p className="text-[10px] font-bold bg-slate-800 text-white px-2 py-0.5 rounded">DELIVERY PERFORMANCE</p>
+                      <table className="w-full report-table border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 font-bold">
+                            <th className="text-left">Month</th>
+                            {fyMonths.map(m => <th key={m}>{formatMonthName(m)}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="text-left font-semibold">No.of Parts Planned</td>
+                            {fyMonths.map(m => <td key={m}>{getMonthlyStats(m).partsPlanned}</td>)}
+                          </tr>
+                          <tr>
+                            <td className="text-left font-semibold">No.of Parts Supplied</td>
+                            {fyMonths.map(m => <td key={m}>{getMonthlyStats(m).partsSupplied}</td>)}
+                          </tr>
+                          <tr className="font-bold text-slate-800 bg-slate-50/50">
+                            <td className="text-left">Delivery Performance %</td>
+                            {fyMonths.map(m => <td key={m}>{getMonthlyStats(m).otd}</td>)}
+                          </tr>
+                          <tr className="text-slate-500">
+                            <td className="text-left">Target %</td>
+                            {fyMonths.map(m => <td key={m}>100</td>)}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 3. Premium Freight Month-by-month table */}
+                    <div className="mt-4 space-y-1">
+                      <p className="text-[10px] font-bold bg-slate-800 text-white px-2 py-0.5 rounded">PREMIUM FREIGHT</p>
+                      <table className="w-full report-table border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 font-bold">
+                            <th className="text-left">Month</th>
+                            {fyMonths.map(m => <th key={m}>{formatMonthName(m)}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="text-left font-semibold">Actual</td>
+                            {fyMonths.map(m => <td key={m}>{getMonthlyStats(m).premiumFreight}</td>)}
+                          </tr>
+                          <tr className="text-slate-500">
+                            <td className="text-left">Target</td>
+                            {fyMonths.map(m => <td key={m}>0</td>)}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* 4. Line Stoppage Month-by-month table */}
+                    <div className="mt-4 space-y-1">
+                      <p className="text-[10px] font-bold bg-slate-800 text-white px-2 py-0.5 rounded">LINE STOPPAGE</p>
+                      <table className="w-full report-table border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 font-bold">
+                            <th className="text-left">Month</th>
+                            {fyMonths.map(m => <th key={m}>{formatMonthName(m)}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="text-left font-semibold">Actual</td>
+                            {fyMonths.map(m => <td key={m}>{getMonthlyStats(m).lineStoppage}</td>)}
+                          </tr>
+                          <tr className="text-slate-500">
+                            <td className="text-left">Target</td>
+                            {fyMonths.map(m => <td key={m}>0</td>)}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Score Rating calculation grid */}
+                    <div className="mt-6 border border-black p-3 bg-slate-50/50 rounded flex justify-between items-stretch">
+                      <div className="w-[120px] flex items-center justify-center border-r border-black font-extrabold text-sm text-center tracking-wider text-slate-800 leading-tight">
+                        PERFORMANCE RATING CALCULATION
+                      </div>
+                      
+                      <div className="flex-1 pl-4 grid grid-cols-3 gap-4 text-[10px]">
+                        <div>
+                          <p className="font-bold border-b pb-1 mb-1.5 text-slate-700">QUALITY (60m)</p>
+                          <div className="space-y-1">
+                            <p className="flex justify-between"><span>0 PPM</span><span className="font-semibold">60m</span></p>
+                            <p className="flex justify-between"><span>1-10 PPM</span><span className="font-semibold">50m</span></p>
+                            <p className="flex justify-between"><span>11-20 PPM</span><span className="font-semibold">40m</span></p>
+                            <p className="flex justify-between"><span>21-30 PPM</span><span className="font-semibold">30m</span></p>
+                            <p className="flex justify-between"><span>31-40 PPM</span><span className="font-semibold">20m</span></p>
+                            <p className="flex justify-between"><span>&gt;40 PPM</span><span className="font-semibold">0m</span></p>
+                            <p className="flex justify-between border-t pt-1 font-bold text-primary">
+                              <span>ACTUAL MARKS</span>
+                              <span>{selectedScorecard?.qualityScore || 60}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="font-bold border-b pb-1 mb-1.5 text-slate-700">DELIVERY (20m)</p>
+                          <div className="space-y-1">
+                            <p className="flex justify-between"><span>100% OTD</span><span className="font-semibold">20m</span></p>
+                            <p className="flex justify-between"><span>95-99%</span><span className="font-semibold">15m</span></p>
+                            <p className="flex justify-between"><span>90-94%</span><span className="font-semibold">10m</span></p>
+                            <p className="flex justify-between"><span>85-89%</span><span className="font-semibold">5m</span></p>
+                            <p className="flex justify-between"><span>80-84%</span><span className="font-semibold">2m</span></p>
+                            <p className="flex justify-between"><span>&lt;80%</span><span className="font-semibold">0m</span></p>
+                            <p className="flex justify-between border-t pt-1 font-bold text-primary">
+                              <span>ACTUAL MARKS</span>
+                              <span>{selectedScorecard?.deliveryScore || 20}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="font-bold border-b pb-1 mb-1.5 text-slate-700">OTHERS (20m)</p>
+                          <div className="space-y-1">
+                            <p className="flex justify-between"><span>4M On-time</span><span className="font-semibold">10m</span></p>
+                            <p className="flex justify-between"><span>Delay / None</span><span className="font-semibold">0m</span></p>
+                            <p className="flex justify-between mt-1"><span>Premium Freight Nil</span><span className="font-semibold">5m</span></p>
+                            <p className="flex justify-between"><span>Used</span><span className="font-semibold">0m</span></p>
+                            <p className="flex justify-between mt-1"><span>Line Stoppage Nil</span><span className="font-semibold">5m</span></p>
+                            <p className="flex justify-between"><span>Occurred</span><span className="font-semibold">0m</span></p>
+                            <p className="flex justify-between border-t pt-1 font-bold text-primary">
+                              <span>ACTUAL MARKS</span>
+                              <span>{localResponsiveness + (localPremiumFreight + localLineStoppage)}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sign-off footer page 2 */}
+                  <div className="border-t pt-4 text-[10px] flex justify-between items-end">
+                    <p className="italic text-slate-400">Sakthi Auto Component Limited Official Audit Ledger</p>
+                    <div className="text-right text-[8px] text-slate-400">
+                      <p>QF/07/MID - 17, Rev.No:01 dt 01.10.2020</p>
+                      <p className="font-bold text-slate-800 mt-0.5">Page 02 of 02</p>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+        </DialogContent>
       </Dialog>
     </div>
   )
