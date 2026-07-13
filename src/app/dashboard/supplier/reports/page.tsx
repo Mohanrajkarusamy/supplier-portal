@@ -172,7 +172,9 @@ export default function SupplierReportsPage() {
       premiumFreight,
       lineStoppage,
       totalScore: sc.totalScore,
-      grade: sc.grade
+      grade: sc.grade,
+      targetPpm: scorecard?.category === "Child-Part" ? 40 : 2000,
+      targetDelivery: 100
     }
   }
 
@@ -778,7 +780,7 @@ export default function SupplierReportsPage() {
                               <Tooltip />
                               <Legend wrapperStyle={{ fontSize: 8 }} />
                               <Line type="monotone" dataKey="ppm" stroke="#22c55e" strokeWidth={1.5} name="Actual PPM" activeDot={{ r: 4 }} />
-                              <Line type="monotone" dataKey="targetPpm" stroke="#2563eb" strokeWidth={1.5} name="Target PPM" defaultValue={0} />
+                              <Line type="monotone" dataKey="targetPpm" stroke="#2563eb" strokeWidth={1.5} name="Target PPM" />
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
@@ -795,7 +797,7 @@ export default function SupplierReportsPage() {
                               <Tooltip />
                               <Legend wrapperStyle={{ fontSize: 8 }} />
                               <Line type="monotone" dataKey="otd" stroke="#22c55e" strokeWidth={1.5} name="Delivery Performance" activeDot={{ r: 4 }} />
-                              <Line type="monotone" dataKey="targetDelivery" stroke="#2563eb" strokeWidth={1.5} name="Target %" defaultValue={100} />
+                              <Line type="monotone" dataKey="targetDelivery" stroke="#2563eb" strokeWidth={1.5} name="Target %" />
                             </LineChart>
                           </ResponsiveContainer>
                         </div>
