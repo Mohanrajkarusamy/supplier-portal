@@ -46,6 +46,8 @@ export default function SupplierReportsPage() {
   // Filter reports
   const reports = allReports.filter(r => (!r.supplierId || r.supplierId === currentUser) && !["R001", "R002", "R003"].includes(r.id))
 
+  const fyMonths = getFinancialYearMonths(selectedMonth)
+
   const fetchScorecard = async () => {
     if (!currentUser) return
     setLoadingScorecard(true)
