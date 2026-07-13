@@ -178,7 +178,7 @@ export default function SupplierDebitNotesPage() {
                                         <TableCell className="text-right font-mono text-red-600 font-semibold">{note.rejectionQuantity || 0}</TableCell>
                                         <TableCell className="text-right font-mono text-slate-500">{note.allowancePercentage || 0}%</TableCell>
                                         <TableCell className="text-right font-mono text-slate-600 font-semibold">{note.allowanceQuantity || 0}</TableCell>
-                                        <TableCell className="text-right font-mono text-amber-700 font-semibold">{note.exceedQuantity || 0}</TableCell>
+                                        <TableCell className={`text-right font-mono font-semibold ${(note.exceedQuantity || 0) > 0 ? "text-red-600" : "text-green-600"}`}>{note.exceedQuantity || 0}</TableCell>
                                         <TableCell className="text-right">
                                             <Button 
                                                 variant="ghost" 
