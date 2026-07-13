@@ -134,18 +134,37 @@ export default function SupplierReportsPage() {
   }
 
   const getMonthlyStats = (mStr: string) => {
+    const isFuture = mStr > selectedMonth;
+    if (isFuture) {
+      return {
+        monthLabel: formatMonthName(mStr),
+        partsSupplied: "",
+        rejectionQty: "",
+        ppm: "",
+        partsPlanned: "",
+        otd: "",
+        responsiveness: "",
+        premiumFreight: "",
+        lineStoppage: "",
+        totalScore: "",
+        grade: "",
+        targetPpm: "",
+        targetDelivery: ""
+      }
+    }
+
     const logs = allYearLogs.filter(log => log.date.startsWith(mStr))
     const partsSupplied = logs.reduce((sum, l) => sum + (l.dispatch || 0), 0)
     const rejectionQty = logs.reduce((sum, l) => sum + (l.rejection || 0), 0)
     const partsPlanned = logs.reduce((sum, l) => sum + (l.plannedQty || 0), 0)
     const ppm = partsSupplied > 0 ? Math.round((rejectionQty / partsSupplied) * 1000000) : 0
-    const otd = partsPlanned > 0 ? Math.min(100, Math.round((partsSupplied / partsPlanned) * 100)) : 100
+    const otd = partsPlanned > 0 ? Math.min(100, Math.round((partsSupplied / partsPlanned) * 100)) : 0
     
     const sc = allYearScorecards.find(s => s.month === mStr) || {
-      responsivenessScore: 10,
-      auditScore: 10,
-      totalScore: 100,
-      grade: 'A+'
+      responsivenessScore: 0,
+      auditScore: 0,
+      totalScore: 0,
+      grade: '-'
     }
 
     let premiumFreight = 0
@@ -783,7 +802,7 @@ export default function SupplierReportsPage() {
                         <p className="text-[10px] font-bold text-slate-700 text-center mb-1">QUALITY PERFORMANCE</p>
                         <div className="h-44 w-full">
                           <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={fyMonths.map(m => getMonthlyStats(m))}>
+                            <LineChart data={fyMonths.filter(m => m <= selectedMonth).map(m => getMonthlyStats(m))}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="monthLabel" tick={{ fontSize: 7 }} />
                               <YAxis tick={{ fontSize: 7 }} />
@@ -800,7 +819,7 @@ export default function SupplierReportsPage() {
                         <p className="text-[10px] font-bold text-slate-700 text-center mb-1">DELIVERY PERFORMANCE</p>
                         <div className="h-44 w-full">
                           <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={fyMonths.map(m => getMonthlyStats(m))}>
+                            <LineChart data={fyMonths.filter(m => m <= selectedMonth).map(m => getMonthlyStats(m))}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="monthLabel" tick={{ fontSize: 7 }} />
                               <YAxis domain={[0, 120]} tick={{ fontSize: 7 }} />
