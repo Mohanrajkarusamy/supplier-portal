@@ -183,7 +183,7 @@ export default function AdminReportsPage() {
               body: JSON.stringify(body)
           })
           if (res.ok) {
-              alert(`Report successfully authorized with e-sign by ${signerName || inputSignerName} (${dept} Department)!`)
+              alert(`Report successfully authorized with e-sign by ${inputSignerName} (${dept} Department)!`)
               fetchReportData()
               setScorecardDialogOpen(false)
               setInputSignerName("")
