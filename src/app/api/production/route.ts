@@ -20,6 +20,10 @@ export async function GET(request: Request) {
       query.partNumber = { $regex: new RegExp('^' + trimmed + '\\s*$', 'i') };
     }
     if (enteredBy) query.enteredBy = enteredBy;
+    const month = searchParams.get('month');
+    if (month) {
+      query.date = { $regex: new RegExp('^' + month.trim()) };
+    }
 
     const logs = await Production.find(query).sort({ date: -1 });
     return NextResponse.json(logs);

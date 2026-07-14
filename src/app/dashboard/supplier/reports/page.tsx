@@ -656,11 +656,16 @@ export default function SupplierReportsPage() {
               <div id="print-scorecard-document" className="bg-white text-black p-8 font-sans border shadow-sm mx-auto" style={{ width: '210mm', minHeight: '297mm' }}>
                 <style dangerouslySetInnerHTML={{__html: `
                   @media print {
-                    body * {
+                    body {
                       visibility: hidden !important;
                     }
-                    #print-scorecard-document, #print-scorecard-document * {
+                    div[data-radix-portal], div[role="dialog"], #print-scorecard-document, #print-scorecard-document * {
                       visibility: visible !important;
+                    }
+                    /* Hide dialog overlays, close buttons and other background details */
+                    div[role="dialog"] > div:first-child, [class*="DialogOverlay"], button[class*="absolute"] {
+                      display: none !important;
+                      opacity: 0 !important;
                     }
                     #print-scorecard-document {
                       position: absolute !important;
@@ -706,9 +711,9 @@ export default function SupplierReportsPage() {
                     <div className="mt-6 text-[11px] leading-relaxed flex justify-between">
                       <div>
                         <p className="font-bold">To:</p>
-                        <p className="font-bold text-slate-800 uppercase mt-1">{supplierDetails?.name || "NSK BEARINGS MANUFACTURING INDIA PVT LTD."}</p>
-                        <p className="text-slate-600 max-w-sm whitespace-pre-line mt-0.5">{supplierDetails?.address || "PLOT No - A2,\nSIPCOT ORAGADAM GROWTH CENTRE,\nMATHUR VILLAGE,\nSRIPERUMBUDUR- 602105."}</p>
-                        <p className="font-bold text-slate-700 mt-2">KIND ATTN. : Mr.{supplierDetails?.contactPerson || "SUKUMAR PALURU"}</p>
+                        <p className="font-bold text-slate-800 uppercase mt-1">{supplierDetails?.name || ""}</p>
+                        <p className="text-slate-600 max-w-sm whitespace-pre-line mt-0.5">{supplierDetails?.companyDetails?.address || supplierDetails?.address || ""}</p>
+                        <p className="font-bold text-slate-700 mt-2">KIND ATTN. : {supplierDetails?.contactPerson ? `Mr. ${supplierDetails.contactPerson}` : ""}</p>
                       </div>
                       <div className="text-right">
                         <span className="text-[10px] font-bold text-red-600 uppercase tracking-widest border border-red-600 px-2 py-0.5 rounded">CONFIDENTIAL</span>
@@ -874,7 +879,7 @@ export default function SupplierReportsPage() {
                     </div>
 
                     <div className="mt-4 text-xs font-bold text-slate-800 uppercase">
-                      SUPPLIER NAME : {supplierDetails?.name || "NSK BEARINGS MANUFACTURING INDIA PVT LTD."}
+                      SUPPLIER NAME : {supplierDetails?.name || ""}
                     </div>
 
                     {/* 1. Quality Month-by-month table */}

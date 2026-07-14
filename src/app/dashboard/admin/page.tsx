@@ -120,7 +120,7 @@ export default function AdminDashboardPage() {
   const [chartSupplierFilter, setChartSupplierFilter] = useState("All")
   const [chartStartDate, setChartStartDate] = useState("")
   const [chartEndDate, setChartEndDate] = useState("")
-  const [chartMonthFilter, setChartMonthFilter] = useState("All")
+  const [chartMonthFilter, setChartMonthFilter] = useState("07")
   const [chartPartFilter, setChartPartFilter] = useState("All")
 
   const [sortField, setSortField] = useState<"partName" | "rejectionQty" | "percentage">("rejectionQty")
@@ -178,7 +178,9 @@ export default function AdminDashboardPage() {
 
   const [overviewSupplierFilter, setOverviewSupplierFilter] = useState("All")
   const [overviewDateFilter, setOverviewDateFilter] = useState(new Date().toISOString().split('T')[0])
-  const [overviewPartFilter, setOverviewPartFilter] = useState("")
+  const [overviewPartFilter, setOverviewPartFilter] = useState("All")
+  const [overviewCategoryFilter, setOverviewCategoryFilter] = useState("All")
+  const [selectedMonth, setSelectedMonth] = useState("2026-07")
   const [redThreshold, setRedThreshold] = useState(1.0)
   const [orangeThreshold, setOrangeThreshold] = useState(1.5)
 
@@ -231,7 +233,7 @@ export default function AdminDashboardPage() {
             // Fetch Production Logs
             let logsData: any[] = []
             try {
-                 const prodRes = await fetch('/api/production')
+                 const prodRes = await fetch(`/api/production?month=${selectedMonth}`)
                  if (prodRes.ok) {
                      logsData = await prodRes.json()
                      setRawProdLogs(logsData)
@@ -281,7 +283,7 @@ export default function AdminDashboardPage() {
         setLoading(false)
     }
     fetchData()
-  }, [])
+  }, [selectedMonth])
 
   // Helper lists for dropdowns
   const supplierList = useMemo(() => {
@@ -334,27 +336,32 @@ export default function AdminDashboardPage() {
   const filteredSupplierList = useMemo(() => {
       return supplierList.filter(s => {
           const matchSupplier = overviewSupplierFilter && overviewSupplierFilter !== "All" ? s.id === overviewSupplierFilter : true
-          const matchPart = overviewPartFilter && overviewPartFilter !== "" ? (
+          const matchPart = overviewPartFilter && overviewPartFilter !== "All" && overviewPartFilter !== "" ? (
               s.companyDetails?.approvedParts?.some((p: any) => 
-                  p.partNumber.toLowerCase().includes(overviewPartFilter.toLowerCase()) ||
-                  p.name.toLowerCase().includes(overviewPartFilter.toLowerCase())
+                  p.partNumber === overviewPartFilter
               )
           ) : true
-          return matchSupplier && matchPart
+          const matchCategory = overviewCategoryFilter && overviewCategoryFilter !== "All" ? (
+              s.companyDetails?.category === overviewCategoryFilter || s.category === overviewCategoryFilter
+          ) : true
+          return matchSupplier && matchPart && matchCategory
       })
-  }, [supplierList, overviewSupplierFilter, overviewPartFilter])
+  }, [supplierList, overviewSupplierFilter, overviewPartFilter, overviewCategoryFilter])
 
   // Filtered Inventory List for Dashboard Overview
   const overviewFilteredInventory = useMemo(() => {
       return currentInventoryList.filter(item => {
           const matchSupplier = overviewSupplierFilter && overviewSupplierFilter !== "All" ? item.supplierId === overviewSupplierFilter : true
-          const matchPart = overviewPartFilter && overviewPartFilter !== "" ? (
-              item.partNumber.toLowerCase().includes(overviewPartFilter.toLowerCase()) || 
-              item.partName.toLowerCase().includes(overviewPartFilter.toLowerCase())
+          const matchPart = overviewPartFilter && overviewPartFilter !== "All" && overviewPartFilter !== "" ? (
+              item.partNumber === overviewPartFilter
           ) : true
-          return matchSupplier && matchPart
+          const supp = suppliers.find(s => s.id === item.supplierId)
+          const matchCategory = overviewCategoryFilter && overviewCategoryFilter !== "All" ? (
+              supp && (supp.companyDetails?.category === overviewCategoryFilter || supp.category === overviewCategoryFilter)
+          ) : true
+          return matchSupplier && matchPart && matchCategory
       })
-  }, [currentInventoryList, overviewSupplierFilter, overviewPartFilter])
+  }, [currentInventoryList, overviewSupplierFilter, overviewPartFilter, overviewCategoryFilter, suppliers])
 
   // Unique Parts list for inventory dropdown scroll
   const uniquePartsList = useMemo(() => {
@@ -743,8 +750,11 @@ export default function AdminDashboardPage() {
           
           if (log.remarks && log.remarks.trim() !== "") {
               const cleanedRemark = log.remarks.trim()
-              if (!existing.defects.includes(cleanedRemark)) {
-                  existing.defects.push(cleanedRemark)
+              const lower = cleanedRemark.toLowerCase()
+              if (lower !== "inventory adjustment" && lower !== "daily performance log") {
+                  if (!existing.defects.includes(cleanedRemark)) {
+                      existing.defects.push(cleanedRemark)
+                  }
               }
           }
           
@@ -878,15 +888,66 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="flex-1 space-y-6 p-1">
-      <div className="flex items-center justify-between">
-        <div>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-800">SQA & Management Portal</h2>
-            <p className="text-slate-500">Live Supplier Production & Inventory Monitoring Board.</p>
+      <div className="flex flex-col gap-4 border p-4 bg-slate-50/50 rounded-lg shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+              <h2 className="text-3xl font-bold tracking-tight text-slate-800">SQA & Management Portal</h2>
+              <p className="text-slate-500 text-sm">Live Supplier Production & Inventory Monitoring Board.</p>
+          </div>
+          <div className="flex items-center space-x-2">
+              <Button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-700 text-white font-semibold">
+                  Print Report
+              </Button>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-            <Button onClick={() => window.print()} className="bg-slate-800 hover:bg-slate-700 text-white">
-                Print Report
-            </Button>
+
+        <div className="grid gap-3 grid-cols-2 md:grid-cols-4 border-t pt-3 mt-1">
+          <div className="grid gap-1">
+            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Analysis Month</Label>
+            <input 
+              type="month" 
+              value={selectedMonth} 
+              onChange={(e) => {
+                if (e.target.value) {
+                  setSelectedMonth(e.target.value);
+                }
+              }} 
+              className="flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary outline-none"
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Supplier</Label>
+            <Select value={overviewSupplierFilter} onValueChange={setOverviewSupplierFilter}>
+              <SelectTrigger className="h-9 text-xs bg-white border-slate-300"><SelectValue placeholder="All Suppliers" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Suppliers</SelectItem>
+                {supplierList.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1">
+            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Part Number</Label>
+            <Select value={overviewPartFilter} onValueChange={setOverviewPartFilter}>
+              <SelectTrigger className="h-9 text-xs bg-white border-slate-300"><SelectValue placeholder="All Parts" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Parts</SelectItem>
+                {Array.from(new Set(rawProdLogs.map(l => l.partNumber).filter(Boolean))).map((p: any) => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1">
+            <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Category</Label>
+            <Select value={overviewCategoryFilter} onValueChange={setOverviewCategoryFilter}>
+              <SelectTrigger className="h-9 text-xs bg-white border-slate-300"><SelectValue placeholder="All Categories" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Categories</SelectItem>
+                <SelectItem value="Pre-Machining">Pre-Machining</SelectItem>
+                <SelectItem value="Child-Part">Child-Part</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -1553,7 +1614,7 @@ export default function AdminDashboardPage() {
                               </CardHeader>
                               <CardContent>
                                   <div className="text-2xl font-bold text-orange-600">
-                                      {filteredInventory.reduce((sum, item) => sum + (item.castingIssued || 0), 0).toLocaleString()} Units
+                                      {filteredInventory.reduce((sum, item) => sum + (item.castingIssued || 0), 0).toLocaleString()} Nos
                                   </div>
                                   <p className="text-[10px] text-slate-400 mt-1">Click to view part-wise scrollable list</p>
                               </CardContent>
@@ -1603,12 +1664,12 @@ export default function AdminDashboardPage() {
                       <DialogTrigger asChild>
                           <Card className="border-l-4 border-l-blue-600 cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
                               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                  <CardTitle className="text-sm font-medium text-slate-500">Total Component Dispatch</CardTitle>
+                                  <CardTitle className="text-sm font-medium text-slate-500">Total Machined Parts Received</CardTitle>
                                   <TrendingUp className="h-4 w-4 text-blue-600" />
                               </CardHeader>
                               <CardContent>
                                   <div className="text-2xl font-bold text-blue-700">
-                                      {filteredInventory.reduce((sum, item) => sum + (item.dispatch || 0), 0).toLocaleString()} Units
+                                      {filteredInventory.reduce((sum, item) => sum + (item.dispatch || 0), 0).toLocaleString()} Nos
                                   </div>
                                   <p className="text-[10px] text-slate-400 mt-1">Click to view part-wise scrollable list</p>
                               </CardContent>
@@ -1616,7 +1677,7 @@ export default function AdminDashboardPage() {
                       </DialogTrigger>
                       <DialogContent className="max-w-2xl border-t-4 border-t-blue-600">
                           <DialogHeader>
-                              <DialogTitle>Part-wise Component Dispatch Breakdown</DialogTitle>
+                              <DialogTitle>Part-wise Machined Parts Received Breakdown</DialogTitle>
                               <DialogDescription>
                                   Total finished components returned by partners for the selected filter.
                               </DialogDescription>
@@ -1628,7 +1689,7 @@ export default function AdminDashboardPage() {
                                           <TableHead>Part Number</TableHead>
                                           <TableHead>Part Name</TableHead>
                                           <TableHead>Supplier</TableHead>
-                                          <TableHead className="text-right">Component Dispatch</TableHead>
+                                          <TableHead className="text-right">Machined Parts Received</TableHead>
                                       </TableRow>
                                   </TableHeader>
                                   <TableBody>
@@ -1639,7 +1700,7 @@ export default function AdminDashboardPage() {
                                                   <TableCell>{item.partName}</TableCell>
                                                   <TableCell>{item.supplierName} ({item.supplierId})</TableCell>
                                                   <TableCell className="text-right font-mono font-bold text-blue-600">
-                                                      -{item.dispatch?.toLocaleString() || 0}
+                                                      -{item.dispatch?.toLocaleString() || 0} Nos
                                                   </TableCell>
                                               </TableRow>
                                           ))
@@ -1663,7 +1724,7 @@ export default function AdminDashboardPage() {
                               </CardHeader>
                               <CardContent>
                                   <div className="text-2xl font-bold text-green-700">
-                                      {filteredInventory.reduce((sum, item) => sum + (item.currentStock || 0), 0).toLocaleString()} Units
+                                      {filteredInventory.reduce((sum, item) => sum + (item.currentStock || 0), 0).toLocaleString()} Nos
                                   </div>
                                   <p className="text-[10px] text-slate-400 mt-1">Click to view part-wise scrollable list</p>
                               </CardContent>
@@ -1773,7 +1834,7 @@ export default function AdminDashboardPage() {
                                       <TableHead>Part No</TableHead>
                                       <TableHead className="text-right">Opening Stock</TableHead>
                                       <TableHead className="text-right">Casting Issued</TableHead>
-                                      <TableHead className="text-right">Dispatch</TableHead>
+                                      <TableHead className="text-right">Machined Parts Received</TableHead>
                                       <TableHead className="text-right">Current Stock</TableHead>
                                       <TableHead>Status</TableHead>
                                   </TableRow>
@@ -1799,10 +1860,10 @@ export default function AdminDashboardPage() {
                                                   </TableCell>
                                                   <TableCell className="font-medium text-slate-700">{item.partName || "Component"}</TableCell>
                                                   <TableCell className="font-mono text-xs">{item.partNumber}</TableCell>
-                                                  <TableCell className="text-right font-mono text-slate-500">{item.openingStock?.toLocaleString() || 0}</TableCell>
-                                                  <TableCell className="text-right text-slate-700 font-medium font-mono">+{item.castingIssued?.toLocaleString() || 0}</TableCell>
-                                                  <TableCell className="text-right text-slate-700 font-medium font-mono">-{item.dispatch?.toLocaleString() || 0}</TableCell>
-                                                  <TableCell className="text-right font-bold text-slate-900 font-mono text-md">{item.currentStock?.toLocaleString() || 0}</TableCell>
+                                                  <TableCell className="text-right font-mono text-slate-500">{item.openingStock?.toLocaleString() || 0} Nos</TableCell>
+                                                  <TableCell className="text-right text-slate-700 font-medium font-mono">+{item.castingIssued?.toLocaleString() || 0} Nos</TableCell>
+                                                  <TableCell className="text-right text-slate-700 font-medium font-mono">-{item.dispatch?.toLocaleString() || 0} Nos</TableCell>
+                                                  <TableCell className="text-right font-bold text-slate-900 font-mono text-md">{item.currentStock?.toLocaleString() || 0} Nos</TableCell>
                                                   <TableCell>
                                                       <Badge className={`border-0 font-medium ${alertBadge}`}>
                                                           {alertText}
@@ -1845,7 +1906,6 @@ export default function AdminDashboardPage() {
                               <Select value={chartMonthFilter} onValueChange={(val) => { setChartMonthFilter(val); setChartMonthInput(val); }}>
                                   <SelectTrigger className="h-9 bg-white"><SelectValue /></SelectTrigger>
                                   <SelectContent>
-                                      <SelectItem value="All">All Months</SelectItem>
                                       <SelectItem value="01">January</SelectItem>
                                       <SelectItem value="02">February</SelectItem>
                                       <SelectItem value="03">March</SelectItem>

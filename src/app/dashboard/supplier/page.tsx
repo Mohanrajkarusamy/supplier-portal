@@ -49,14 +49,14 @@ export default function SupplierDashboardPage() {
   // Chart Filters
   const [chartStartDate, setChartStartDate] = useState("")
   const [chartEndDate, setChartEndDate] = useState("")
-  const [chartMonthFilter, setChartMonthFilter] = useState("All")
+  const [chartMonthFilter, setChartMonthFilter] = useState(new Date().toISOString().slice(5, 7))
   const [chartPartFilter, setChartPartFilter] = useState("All")
   const [defectPartFilter, setDefectPartFilter] = useState("All")
 
   // For inputs
   const [chartStartDateInput, setChartStartDateInput] = useState("")
   const [chartEndDateInput, setChartEndDateInput] = useState("")
-  const [chartMonthInput, setChartMonthInput] = useState("All")
+  const [chartMonthInput, setChartMonthInput] = useState(new Date().toISOString().slice(5, 7))
   const [chartPartInput, setChartPartInput] = useState("All")
 
   useEffect(() => {
@@ -228,8 +228,11 @@ export default function SupplierDashboardPage() {
 
           if (log.remarks && log.remarks.trim() !== "") {
               const cleanedRemark = log.remarks.trim()
-              if (!existing.defects.includes(cleanedRemark)) {
-                  existing.defects.push(cleanedRemark)
+              const lower = cleanedRemark.toLowerCase()
+              if (lower !== "inventory adjustment" && lower !== "daily performance log") {
+                  if (!existing.defects.includes(cleanedRemark)) {
+                      existing.defects.push(cleanedRemark)
+                  }
               }
           }
 
@@ -646,7 +649,6 @@ export default function SupplierDashboardPage() {
                       <Select value={chartMonthFilter} onValueChange={(val) => { setChartMonthFilter(val); setChartMonthInput(val); }}>
                           <SelectTrigger className="h-8 text-xs bg-white"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                              <SelectItem value="All">All Months</SelectItem>
                               <SelectItem value="01">January</SelectItem>
                               <SelectItem value="02">February</SelectItem>
                               <SelectItem value="03">March</SelectItem>

@@ -229,13 +229,13 @@ export default function SuppliersPage() {
             const emailSubject = "Welcome to SAKTHI Partner Hub - Account Activation";
             const emailMessage = `Dear ${name},\n\nYou have been registered as a supplier on the SAKTHI Partner Hub.\n\nHere are your access credentials:\n- **Supplier ID / User ID**: ${result.supplier.id}\n- **Temporary Password**: ${result._debug_tempPassword}\n\nPlease activate your account by visiting the portal at https://supplier-portal-kappa.vercel.app/auth/login and selecting 'Activate Account' to set your permanent password.\n\nBest regards,\nSAKTHI AUTO COMPONENTS LIMITED`;
             
-            const emailRes = await sendEmail(name, email, emailMessage, emailSubject);
+            const emailRes = email ? await sendEmail(name, email, emailMessage, emailSubject) : { success: false, isSimulation: true };
             resetForm()
             
-            if (emailRes.success && !emailRes.isSimulation) {
+            if (email && emailRes.success && !emailRes.isSimulation) {
                 alert(`Supplier Created Successfully!\nID: ${result.supplier.id}\nTemp Password: ${result._debug_tempPassword}\n\nWelcome email sent to ${email} successfully!`);
             } else {
-                alert(`Supplier Created Successfully!\nID: ${result.supplier.id}\nTemp Password: ${result._debug_tempPassword}\n\n(SMS simulated. Setup EmailJS in settings to send real welcome emails.)`);
+                alert(`Supplier Created Successfully!\nID: ${result.supplier.id}\nTemp Password: ${result._debug_tempPassword}\n\nSupplier credentials generated successfully.`);
             }
         } else {
             alert(`Failed: ${result.message}`);
@@ -766,7 +766,7 @@ export default function SuppliersPage() {
                 <DialogFooter className="border-t pt-4">
                   <Button 
                     onClick={handleAddSupplier} 
-                    disabled={!supplierId || !name || !category || !email}
+                    disabled={!supplierId || !name || !category}
                     className="bg-primary hover:bg-orange-600 text-white w-full sm:w-auto"
                   >
                     {isEditing ? "Update Supplier" : "Create Supplier"}
