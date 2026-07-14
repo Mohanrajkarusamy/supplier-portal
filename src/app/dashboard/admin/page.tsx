@@ -47,9 +47,26 @@ import {
   ReferenceLine
 } from "recharts"
 
+function cleanDefectRemark(remark: string): string {
+  if (!remark) return "";
+  let cleaned = remark
+    .replace(/inventory\s*adjustment/gi, "")
+    .replace(/daily\s*performance\s*log/gi, "")
+    .replace(/^\s*,\s*|\s*,\s*$/g, "")
+    .replace(/\s*,\s*,+/g, ",")
+    .trim();
+  if (cleaned.startsWith(",")) cleaned = cleaned.slice(1).trim();
+  if (cleaned.endsWith(",")) cleaned = cleaned.slice(0, -1).trim();
+  return cleaned;
+}
+
 export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [mounted, setMounted] = useState(false)
+  
+  const [partWisePartFilter, setPartWisePartFilter] = useState("All")
+  const [planActualPartFilter, setPlanActualPartFilter] = useState("All")
+  const [rejRatePartFilter, setRejRatePartFilter] = useState("All")
   
   // Data States
   const [suppliers, setSuppliers] = useState<any[]>([])
@@ -577,23 +594,21 @@ export default function AdminDashboardPage() {
       return parts
   }, [supplierList, chartSupplierFilter])
 
-  const chartData = useMemo(() => {
+  // Plan vs Actual Chart Data (respects local planActualPartFilter dropdown)
+  const planActualChartData = useMemo(() => {
       const filtered = prodLogs.filter(log => {
           if (log.isOpeningStockRecord) return false
-          
           const matchSupplier = chartSupplierFilter && chartSupplierFilter !== "All" ? log.supplierId === chartSupplierFilter : true
           const matchStart = chartStartDate ? log.date >= chartStartDate : true
           const matchEnd = chartEndDate ? log.date <= chartEndDate : true
           const matchMonth = chartMonthFilter && chartMonthFilter !== "All" ? log.date.split('-')[1] === chartMonthFilter : true
-          const matchPart = chartPartFilter && chartPartFilter !== "All" && chartPartFilter !== "" ? (
-              log.partNumber === chartPartFilter
+          const matchPart = planActualPartFilter && planActualPartFilter !== "All" && planActualPartFilter !== "" ? (
+              log.partNumber === planActualPartFilter
           ) : true
-          
           return matchSupplier && matchStart && matchEnd && matchMonth && matchPart
       })
       
       const sorted = [...filtered].sort((a, b) => a.date.localeCompare(b.date))
-      
       const groupedMap = new Map<string, any>()
       for (const log of sorted) {
           const existing = groupedMap.get(log.date) || {
@@ -605,18 +620,50 @@ export default function AdminDashboardPage() {
               plan: 0,
               count: 0
           }
-          
-          // Calculate daily plan for this log
           const supp = supplierList.find(s => s.id === log.supplierId)
           const part = supp?.companyDetails?.approvedParts?.find((p: any) => p.partNumber === log.partNumber)
           const dailyPlan = part ? (part.monthlyRequirement || 0) / 25 : 0
-          
           existing.production += log.production || 0
           existing.dispatch += log.dispatch || 0
           existing.rejection += log.rejection || 0
           existing.closingStock += log.closingStock || 0
           existing.plan += dailyPlan
           existing.count++
+          groupedMap.set(log.date, existing)
+      }
+      return Array.from(groupedMap.values())
+  }, [prodLogs, chartSupplierFilter, chartStartDate, chartEndDate, chartMonthFilter, planActualPartFilter, supplierList])
+
+  // Quality Rejection Rate & PPM Chart Data (respects local rejRatePartFilter dropdown)
+  const rejRateChartData = useMemo(() => {
+      const filtered = prodLogs.filter(log => {
+          if (log.isOpeningStockRecord) return false
+          const matchSupplier = chartSupplierFilter && chartSupplierFilter !== "All" ? log.supplierId === chartSupplierFilter : true
+          const matchStart = chartStartDate ? log.date >= chartStartDate : true
+          const matchEnd = chartEndDate ? log.date <= chartEndDate : true
+          const matchMonth = chartMonthFilter && chartMonthFilter !== "All" ? log.date.split('-')[1] === chartMonthFilter : true
+          const matchPart = rejRatePartFilter && rejRatePartFilter !== "All" && rejRatePartFilter !== "" ? (
+              log.partNumber === rejRatePartFilter
+          ) : true
+          return matchSupplier && matchStart && matchEnd && matchMonth && matchPart
+      })
+      
+      const sorted = [...filtered].sort((a, b) => a.date.localeCompare(b.date))
+      const groupedMap = new Map<string, any>()
+      for (const log of sorted) {
+          const existing = groupedMap.get(log.date) || {
+              date: log.date,
+              production: 0,
+              dispatch: 0,
+              rejection: 0,
+              closingStock: 0,
+              plan: 0,
+              count: 0
+          }
+          existing.production += log.production || 0
+          existing.dispatch += log.dispatch || 0
+          existing.rejection += log.rejection || 0
+          existing.closingStock += log.closingStock || 0
           groupedMap.set(log.date, existing)
       }
       
@@ -630,13 +677,13 @@ export default function AdminDashboardPage() {
               ppm: ppmVal
           }
       })
-  }, [prodLogs, chartSupplierFilter, chartStartDate, chartEndDate, chartMonthFilter, chartPartFilter, supplierList])
+  }, [prodLogs, chartSupplierFilter, chartStartDate, chartEndDate, chartMonthFilter, rejRatePartFilter])
 
   // Dynamic Constant Plan value based on registration targets (monthlyRequirement / 25)
   const constantPlanValue = useMemo(() => {
       let totalPlan = 0
       const selectedSuppId = chartSupplierFilter
-      const selectedPartNo = chartPartFilter
+      const selectedPartNo = planActualPartFilter
       
       const targetSuppliers = selectedSuppId === "All" 
           ? supplierList 
@@ -652,21 +699,19 @@ export default function AdminDashboardPage() {
           }
       }
       return totalPlan
-  }, [supplierList, chartSupplierFilter, chartPartFilter])
+  }, [supplierList, chartSupplierFilter, planActualPartFilter])
 
   // Part-wise rejections pie chart data
   const pieChartData = useMemo(() => {
       const filtered = prodLogs.filter(log => {
           if (log.isOpeningStockRecord) return false
-          
           const matchSupplier = chartSupplierFilter && chartSupplierFilter !== "All" ? log.supplierId === chartSupplierFilter : true
           const matchStart = chartStartDate ? log.date >= chartStartDate : true
           const matchEnd = chartEndDate ? log.date <= chartEndDate : true
           const matchMonth = chartMonthFilter && chartMonthFilter !== "All" ? log.date.split('-')[1] === chartMonthFilter : true
-          const matchPart = chartPartFilter && chartPartFilter !== "All" && chartPartFilter !== "" ? (
-              log.partNumber === chartPartFilter
+          const matchPart = partWisePartFilter && partWisePartFilter !== "All" && partWisePartFilter !== "" ? (
+              log.partNumber === partWisePartFilter
           ) : true
-          
           return matchSupplier && matchStart && matchEnd && matchMonth && matchPart
       })
       
@@ -689,7 +734,7 @@ export default function AdminDashboardPage() {
       }).filter(item => item.value > 0)
       
       return dataList;
-  }, [prodLogs, chartSupplierFilter, chartStartDate, chartEndDate, chartMonthFilter, chartPartFilter, supplierList])
+  }, [prodLogs, chartSupplierFilter, chartStartDate, chartEndDate, chartMonthFilter, partWisePartFilter, supplierList])
 
   // Filtered Issues for quality problems table breakdown
   const filteredIssues = useMemo(() => {
@@ -1949,13 +1994,24 @@ export default function AdminDashboardPage() {
                       </div>
                   </CardHeader>
                   <CardContent className="space-y-8">
-                      {mounted && chartData.length > 0 ? (
+                      {mounted && planActualChartData.length > 0 ? (
                           <>
                               <div className="grid gap-6 md:grid-cols-2">
                                   {/* Chart 1: Approved Part-wise Rejection Details Pie Chart */}
                                   <Card className="p-4 shadow-sm border bg-white flex flex-col justify-between">
-                                      <CardHeader className="pb-2">
+                                      <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
                                           <CardTitle className="text-sm font-bold text-slate-700">Part-wise Rejection Details (%)</CardTitle>
+                                          <div className="w-[150px]">
+                                              <Select value={partWisePartFilter} onValueChange={setPartWisePartFilter}>
+                                                  <SelectTrigger className="h-7 text-[11px] bg-white"><SelectValue placeholder="All Parts" /></SelectTrigger>
+                                                  <SelectContent>
+                                                      <SelectItem value="All">All Parts</SelectItem>
+                                                      {chartPartsList.map((p: any, idx: number) => (
+                                                          <SelectItem key={idx} value={p.partNumber} className="text-[11px]">{p.name}</SelectItem>
+                                                      ))}
+                                                  </SelectContent>
+                                              </Select>
+                                          </div>
                                       </CardHeader>
                                       <CardContent className="h-[250px] pt-4 flex items-center justify-center">
                                           {pieChartData.length > 0 ? (
@@ -1986,12 +2042,23 @@ export default function AdminDashboardPage() {
 
                                   {/* Chart 2: Plan vs Actual Production */}
                                   <Card className="p-4 shadow-sm border bg-white">
-                                      <CardHeader className="pb-2">
+                                      <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
                                           <CardTitle className="text-sm font-bold text-slate-700">Plan vs Actual Production</CardTitle>
+                                          <div className="w-[150px]">
+                                              <Select value={planActualPartFilter} onValueChange={setPlanActualPartFilter}>
+                                                  <SelectTrigger className="h-7 text-[11px] bg-white"><SelectValue placeholder="All Parts" /></SelectTrigger>
+                                                  <SelectContent>
+                                                      <SelectItem value="All">All Parts</SelectItem>
+                                                      {chartPartsList.map((p: any, idx: number) => (
+                                                          <SelectItem key={idx} value={p.partNumber} className="text-[11px]">{p.name}</SelectItem>
+                                                      ))}
+                                                  </SelectContent>
+                                              </Select>
+                                          </div>
                                       </CardHeader>
                                       <CardContent className="h-[250px] pt-4">
                                           <ResponsiveContainer width="100%" height="100%">
-                                              <BarChart data={chartData}>
+                                              <BarChart data={planActualChartData}>
                                                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                                   <XAxis dataKey="date" tick={{fontSize: 10}} />
                                                   <YAxis tick={{fontSize: 10}} />
@@ -2016,12 +2083,23 @@ export default function AdminDashboardPage() {
                               <div className="grid gap-6 md:grid-cols-2">
                                   {/* Chart 3: Quality Rejection Rate (%) & PPM */}
                                   <Card className="p-4 shadow-sm border bg-white">
-                                      <CardHeader className="pb-2">
+                                      <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
                                           <CardTitle className="text-sm font-bold text-slate-700">Quality Rejection Rate (%) & PPM</CardTitle>
+                                          <div className="w-[150px]">
+                                              <Select value={rejRatePartFilter} onValueChange={setRejRatePartFilter}>
+                                                  <SelectTrigger className="h-7 text-[11px] bg-white"><SelectValue placeholder="All Parts" /></SelectTrigger>
+                                                  <SelectContent>
+                                                      <SelectItem value="All">All Parts</SelectItem>
+                                                      {chartPartsList.map((p: any, idx: number) => (
+                                                          <SelectItem key={idx} value={p.partNumber} className="text-[11px]">{p.name}</SelectItem>
+                                                      ))}
+                                                  </SelectContent>
+                                              </Select>
+                                          </div>
                                       </CardHeader>
                                       <CardContent className="h-[250px] pt-4">
                                           <ResponsiveContainer width="100%" height="100%">
-                                              <LineChart data={chartData}>
+                                              <LineChart data={rejRateChartData}>
                                                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                                   <XAxis dataKey="date" tick={{fontSize: 10}} />
                                                   <YAxis yAxisId="left" tick={{fontSize: 10}} label={{ value: '%', angle: -90, position: 'insideLeft' }} />

@@ -35,6 +35,19 @@ import {
     ReferenceLine
 } from "recharts"
 
+function cleanDefectRemark(remark: string): string {
+  if (!remark) return "";
+  let cleaned = remark
+    .replace(/inventory\s*adjustment/gi, "")
+    .replace(/daily\s*performance\s*log/gi, "")
+    .replace(/^\s*,\s*|\s*,\s*$/g, "")
+    .replace(/\s*,\s*,+/g, ",")
+    .trim();
+  if (cleaned.startsWith(",")) cleaned = cleaned.slice(1).trim();
+  if (cleaned.endsWith(",")) cleaned = cleaned.slice(0, -1).trim();
+  return cleaned;
+}
+
 export default function SupplierDashboardPage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -52,6 +65,9 @@ export default function SupplierDashboardPage() {
   const [chartMonthFilter, setChartMonthFilter] = useState(new Date().toISOString().slice(5, 7))
   const [chartPartFilter, setChartPartFilter] = useState("All")
   const [defectPartFilter, setDefectPartFilter] = useState("All")
+  const [partWisePartFilter, setPartWisePartFilter] = useState("All")
+  const [planActualPartFilter, setPlanActualPartFilter] = useState("All")
+  const [rejRatePartFilter, setRejRatePartFilter] = useState("All")
 
   // For inputs
   const [chartStartDateInput, setChartStartDateInput] = useState("")
@@ -155,24 +171,56 @@ export default function SupplierDashboardPage() {
       })
   }, [issuesList, chartPartFilter])
 
-  // Chart Data calculation (Plan vs Actual, Rejection Rate, PPM)
-  const chartData = useMemo(() => {
-      const dailyMap = new Map<string, { date: string; production: number; rejection: number; dispatch: number }>()
+  // Plan vs Actual Chart Data (respects local planActualPartFilter dropdown)
+  const planActualChartData = useMemo(() => {
+      const logs = prodLogs.filter((log: any) => {
+          if (chartMonthFilter !== "All") {
+              const logMonth = log.date.split("-")[1]
+              if (logMonth !== chartMonthFilter) return false
+          }
+          if (chartStartDate && new Date(log.date) < new Date(chartStartDate)) return false
+          if (chartEndDate && new Date(log.date) > new Date(chartEndDate)) return false
+          if (planActualPartFilter !== "All" && log.partNumber !== planActualPartFilter) return false
+          return true
+      })
 
-      for (const log of filteredLogs) {
+      const dailyMap = new Map<string, { date: string; production: number; rejection: number; dispatch: number }>()
+      for (const log of logs) {
           const dateStr = log.date
           const existing = dailyMap.get(dateStr) || { date: dateStr, production: 0, rejection: 0, dispatch: 0 }
-          
           existing.production += log.production || 0
           existing.rejection += log.rejection || 0
           existing.dispatch += log.dispatch || 0
-          
           dailyMap.set(dateStr, existing)
       }
 
-      const list = Array.from(dailyMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      return Array.from(dailyMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  }, [prodLogs, chartMonthFilter, chartStartDate, chartEndDate, planActualPartFilter])
 
-      return list.map(item => {
+  // Quality Rejection Rate & PPM Chart Data (respects local rejRatePartFilter dropdown)
+  const rejRateChartData = useMemo(() => {
+      const logs = prodLogs.filter((log: any) => {
+          if (chartMonthFilter !== "All") {
+              const logMonth = log.date.split("-")[1]
+              if (logMonth !== chartMonthFilter) return false
+          }
+          if (chartStartDate && new Date(log.date) < new Date(chartStartDate)) return false
+          if (chartEndDate && new Date(log.date) > new Date(chartEndDate)) return false
+          if (rejRatePartFilter !== "All" && log.partNumber !== rejRatePartFilter) return false
+          return true
+      })
+
+      const dailyMap = new Map<string, { date: string; production: number; rejection: number; dispatch: number }>()
+      for (const log of logs) {
+          const dateStr = log.date
+          const existing = dailyMap.get(dateStr) || { date: dateStr, production: 0, rejection: 0, dispatch: 0 }
+          existing.production += log.production || 0
+          existing.rejection += log.rejection || 0
+          existing.dispatch += log.dispatch || 0
+          dailyMap.set(dateStr, existing)
+      }
+
+      return Array.from(dailyMap.values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(item => {
           const baseQty = item.dispatch > 0 ? item.dispatch : (item.production > 0 ? item.production : 0)
           const rej = item.rejection || 0
           const rate = baseQty > 0 ? (rej / baseQty) * 100 : 0
@@ -184,12 +232,12 @@ export default function SupplierDashboardPage() {
               ppm: ppmValue
           }
       })
-  }, [filteredLogs])
+  }, [prodLogs, chartMonthFilter, chartStartDate, chartEndDate, rejRatePartFilter])
 
   // Dynamic Constant Plan Target Value
   const constantPlanValue = useMemo(() => {
-      if (chartPartFilter !== "All" && chartPartFilter !== "") {
-          const partInfo = chartPartsList.find((x: any) => x.partNumber === chartPartFilter)
+      if (planActualPartFilter !== "All" && planActualPartFilter !== "") {
+          const partInfo = chartPartsList.find((x: any) => x.partNumber === planActualPartFilter)
           if (partInfo && partInfo.monthlyRequirement) {
               return partInfo.monthlyRequirement / 25
           }
@@ -198,7 +246,7 @@ export default function SupplierDashboardPage() {
           return totalMonthly / 25
       }
       return 0
-  }, [chartPartsList, chartPartFilter])
+  }, [chartPartsList, planActualPartFilter])
 
   // Part Rejection Table / Defect details compiler
   const partRejectionTableData = useMemo(() => {
@@ -227,11 +275,10 @@ export default function SupplierDashboardPage() {
           existing.rejectionQty += rej
 
           if (log.remarks && log.remarks.trim() !== "") {
-              const cleanedRemark = log.remarks.trim()
-              const lower = cleanedRemark.toLowerCase()
-              if (lower !== "inventory adjustment" && lower !== "daily performance log") {
-                  if (!existing.defects.includes(cleanedRemark)) {
-                      existing.defects.push(cleanedRemark)
+              const cleaned = cleanDefectRemark(log.remarks);
+              if (cleaned !== "") {
+                  if (!existing.defects.includes(cleaned)) {
+                      existing.defects.push(cleaned)
                   }
               }
           }
@@ -258,9 +305,11 @@ export default function SupplierDashboardPage() {
 
           const defectDesc = issue.description || issue.defect
           if (defectDesc && defectDesc.trim() !== "") {
-              const cleanedDefect = defectDesc.trim()
-              if (!existing.defects.includes(cleanedDefect)) {
-                  existing.defects.push(cleanedDefect)
+              const cleaned = cleanDefectRemark(defectDesc);
+              if (cleaned !== "") {
+                  if (!existing.defects.includes(cleaned)) {
+                      existing.defects.push(cleaned)
+                  }
               }
           }
 
@@ -302,8 +351,8 @@ export default function SupplierDashboardPage() {
           const p = chartPartsList.find((x: any) => x.partNumber === partNo)
           const name = p ? p.name : partNo
           return { name, value: rejQty, partNumber: partNo }
-      }).filter(item => item.value > 0)
-  }, [filteredLogs, chartPartsList])
+      }).filter(item => item.value > 0 && (partWisePartFilter === "All" || item.partNumber === partWisePartFilter))
+  }, [filteredLogs, chartPartsList, partWisePartFilter])
 
   // Defect Rejection Pie Chart data list
   const defectPieChartData = useMemo(() => {
@@ -692,91 +741,124 @@ export default function SupplierDashboardPage() {
               </div>
           </CardHeader>
           <CardContent className="space-y-8 pt-6">
-              {mounted && chartData.length > 0 ? (
+              {mounted && planActualChartData.length > 0 ? (
                   <>
                       <div className="grid gap-6 md:grid-cols-2">
-                          {/* Chart 1: Approved Part-wise Rejection Details Pie Chart */}
-                          <Card className="p-4 shadow-sm border bg-white flex flex-col justify-between">
-                              <CardHeader className="pb-2">
-                                  <CardTitle className="text-sm font-bold text-slate-700">Part-wise Rejection Details (%)</CardTitle>
-                              </CardHeader>
-                              <CardContent className="h-[250px] pt-4 flex items-center justify-center">
-                                  {pieChartData.length > 0 ? (
-                                      <ResponsiveContainer width="100%" height="100%">
-                                          <PieChart>
-                                              <Pie
-                                                  data={pieChartData}
-                                                  cx="50%"
-                                                  cy="50%"
-                                                  label={({ name, percent }) => `${name}: ${(percent ? percent * 100 : 0).toFixed(0)}%`}
-                                                  outerRadius={80}
-                                                  fill="#8884d8"
-                                                  dataKey="value"
-                                              >
-                                                  {pieChartData.map((entry: any, index: number) => {
-                                                      const COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899']
-                                                      return <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                                  })}
-                                              </Pie>
-                                              <Tooltip content={<CustomPieTooltip />} />
-                                          </PieChart>
-                                      </ResponsiveContainer>
-                                  ) : (
-                                      <p className="text-sm text-slate-400 italic">No quality rejections logged for the selected period.</p>
-                                  )}
-                              </CardContent>
-                          </Card>
+                           {/* Chart 1: Approved Part-wise Rejection Details Pie Chart */}
+                           <Card className="p-4 shadow-sm border bg-white flex flex-col justify-between">
+                               <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                                   <CardTitle className="text-sm font-bold text-slate-700">Part-wise Rejection Details (%)</CardTitle>
+                                   <div className="w-[150px]">
+                                       <Select value={partWisePartFilter} onValueChange={setPartWisePartFilter}>
+                                           <SelectTrigger className="h-7 text-[11px] bg-white"><SelectValue placeholder="All Parts" /></SelectTrigger>
+                                           <SelectContent>
+                                               <SelectItem value="All">All Parts</SelectItem>
+                                               {chartPartsList.map((p: any, idx: number) => (
+                                                   <SelectItem key={idx} value={p.partNumber} className="text-[11px]">{p.name}</SelectItem>
+                                               ))}
+                                           </SelectContent>
+                                       </Select>
+                                   </div>
+                               </CardHeader>
+                               <CardContent className="h-[250px] pt-4 flex items-center justify-center">
+                                   {pieChartData.length > 0 ? (
+                                       <ResponsiveContainer width="100%" height="100%">
+                                           <PieChart>
+                                               <Pie
+                                                   data={pieChartData}
+                                                   cx="50%"
+                                                   cy="50%"
+                                                   label={({ name, percent }) => `${name}: ${(percent ? percent * 100 : 0).toFixed(0)}%`}
+                                                   outerRadius={80}
+                                                   fill="#8884d8"
+                                                   dataKey="value"
+                                               >
+                                                   {pieChartData.map((entry: any, index: number) => {
+                                                       const COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899']
+                                                       return <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                   })}
+                                               </Pie>
+                                               <Tooltip content={<CustomPieTooltip />} />
+                                           </PieChart>
+                                       </ResponsiveContainer>
+                                   ) : (
+                                       <p className="text-sm text-slate-400 italic">No quality rejections logged for the selected period.</p>
+                                   )}
+                               </CardContent>
+                           </Card>
 
-                          {/* Chart 2: Plan vs Actual Production */}
-                          <Card className="p-4 shadow-sm border bg-white">
-                              <CardHeader className="pb-2">
-                                  <CardTitle className="text-sm font-bold text-slate-700">Plan vs Actual Production</CardTitle>
-                              </CardHeader>
-                              <CardContent className="h-[250px] pt-4">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                      <BarChart data={chartData}>
-                                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                          <XAxis dataKey="date" tick={{fontSize: 10}} />
-                                          <YAxis tick={{fontSize: 10}} />
-                                          <Tooltip />
-                                          <Legend wrapperStyle={{fontSize: 10}} />
-                                          <Bar dataKey="dispatch" fill="#10b981" name="Actual Production Qty" />
-                                          {constantPlanValue > 0 && (
-                                              <ReferenceLine 
-                                                  y={constantPlanValue} 
-                                                  stroke="#6366f1" 
-                                                  strokeWidth={2}
-                                                  strokeDasharray="4 4" 
-                                                  label={{ value: `Plan target: ${Math.round(constantPlanValue)} Qty`, fill: '#6366f1', fontSize: 10, position: 'top', fontWeight: 'bold' }} 
-                                              />
-                                          )}
-                                      </BarChart>
-                                  </ResponsiveContainer>
-                              </CardContent>
-                          </Card>
-                      </div>
+                           {/* Chart 2: Plan vs Actual Production */}
+                           <Card className="p-4 shadow-sm border bg-white">
+                               <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                                   <CardTitle className="text-sm font-bold text-slate-700">Plan vs Actual Production</CardTitle>
+                                   <div className="w-[150px]">
+                                       <Select value={planActualPartFilter} onValueChange={setPlanActualPartFilter}>
+                                           <SelectTrigger className="h-7 text-[11px] bg-white"><SelectValue placeholder="All Parts" /></SelectTrigger>
+                                           <SelectContent>
+                                               <SelectItem value="All">All Parts</SelectItem>
+                                               {chartPartsList.map((p: any, idx: number) => (
+                                                   <SelectItem key={idx} value={p.partNumber} className="text-[11px]">{p.name}</SelectItem>
+                                               ))}
+                                           </SelectContent>
+                                       </Select>
+                                   </div>
+                               </CardHeader>
+                               <CardContent className="h-[250px] pt-4">
+                                   <ResponsiveContainer width="100%" height="100%">
+                                       <BarChart data={planActualChartData}>
+                                           <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                           <XAxis dataKey="date" tick={{fontSize: 10}} />
+                                           <YAxis tick={{fontSize: 10}} />
+                                           <Tooltip />
+                                           <Legend wrapperStyle={{fontSize: 10}} />
+                                           <Bar dataKey="dispatch" fill="#10b981" name="Actual Production Qty" />
+                                           {constantPlanValue > 0 && (
+                                               <ReferenceLine 
+                                                   y={constantPlanValue} 
+                                                   stroke="#6366f1" 
+                                                   strokeWidth={2}
+                                                   strokeDasharray="4 4" 
+                                                   label={{ value: `Plan target: ${Math.round(constantPlanValue)} Qty`, fill: '#6366f1', fontSize: 10, position: 'top', fontWeight: 'bold' }} 
+                                               />
+                                           )}
+                                       </BarChart>
+                                   </ResponsiveContainer>
+                               </CardContent>
+                           </Card>
+                       </div>
 
-                      <div className="grid gap-6 md:grid-cols-2">
-                          {/* Chart 3: Quality Rejection Rate (%) & PPM */}
-                          <Card className="p-4 shadow-sm border bg-white">
-                              <CardHeader className="pb-2">
-                                  <CardTitle className="text-sm font-bold text-slate-700">Quality Rejection Rate (%) & PPM</CardTitle>
-                              </CardHeader>
-                              <CardContent className="h-[250px] pt-4">
-                                  <ResponsiveContainer width="100%" height="100%">
-                                      <LineChart data={chartData}>
-                                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                          <XAxis dataKey="date" tick={{fontSize: 10}} />
-                                          <YAxis yAxisId="left" tick={{fontSize: 10}} label={{ value: '%', angle: -90, position: 'insideLeft' }} />
-                                          <YAxis yAxisId="right" orientation="right" tick={{fontSize: 10}} label={{ value: 'PPM', angle: 90, position: 'insideRight' }} />
-                                          <Tooltip />
-                                          <Legend wrapperStyle={{fontSize: 10}} />
-                                          <Line yAxisId="left" type="monotone" dataKey="rejectionRate" stroke="#ef4444" strokeWidth={2} name="Rejection Rate %" activeDot={{ r: 6 }} />
-                                          <Line yAxisId="right" type="monotone" dataKey="ppm" stroke="#f59e0b" strokeWidth={2} name="PPM Rate" />
-                                      </LineChart>
-                                  </ResponsiveContainer>
-                              </CardContent>
-                          </Card>
+                       <div className="grid gap-6 md:grid-cols-2">
+                           {/* Chart 3: Quality Rejection Rate (%) & PPM */}
+                           <Card className="p-4 shadow-sm border bg-white">
+                               <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                                   <CardTitle className="text-sm font-bold text-slate-700">Quality Rejection Rate (%) & PPM</CardTitle>
+                                   <div className="w-[150px]">
+                                       <Select value={rejRatePartFilter} onValueChange={setRejRatePartFilter}>
+                                           <SelectTrigger className="h-7 text-[11px] bg-white"><SelectValue placeholder="All Parts" /></SelectTrigger>
+                                           <SelectContent>
+                                               <SelectItem value="All">All Parts</SelectItem>
+                                               {chartPartsList.map((p: any, idx: number) => (
+                                                   <SelectItem key={idx} value={p.partNumber} className="text-[11px]">{p.name}</SelectItem>
+                                               ))}
+                                           </SelectContent>
+                                       </Select>
+                                   </div>
+                               </CardHeader>
+                               <CardContent className="h-[250px] pt-4">
+                                   <ResponsiveContainer width="100%" height="100%">
+                                       <LineChart data={rejRateChartData}>
+                                           <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                           <XAxis dataKey="date" tick={{fontSize: 10}} />
+                                           <YAxis yAxisId="left" tick={{fontSize: 10}} label={{ value: '%', angle: -90, position: 'insideLeft' }} />
+                                           <YAxis yAxisId="right" orientation="right" tick={{fontSize: 10}} label={{ value: 'PPM', angle: 90, position: 'insideRight' }} />
+                                           <Tooltip />
+                                           <Legend wrapperStyle={{fontSize: 10}} />
+                                           <Line yAxisId="left" type="monotone" dataKey="rejectionRate" stroke="#ef4444" strokeWidth={2} name="Rejection Rate %" activeDot={{ r: 6 }} />
+                                           <Line yAxisId="right" type="monotone" dataKey="ppm" stroke="#f59e0b" strokeWidth={2} name="PPM Rate" />
+                                       </LineChart>
+                                   </ResponsiveContainer>
+                               </CardContent>
+                           </Card>
 
                           {/* Chart 4: Defect-wise Rejection Details Pie Chart */}
                           <Card className="p-4 shadow-sm border bg-white flex flex-col justify-between">
