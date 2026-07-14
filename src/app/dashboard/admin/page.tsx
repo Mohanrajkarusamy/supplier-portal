@@ -794,11 +794,10 @@ export default function AdminDashboardPage() {
           existing.rejectionQty += rej
           
           if (log.remarks && log.remarks.trim() !== "") {
-              const cleanedRemark = log.remarks.trim()
-              const lower = cleanedRemark.toLowerCase()
-              if (lower !== "inventory adjustment" && lower !== "daily performance log") {
-                  if (!existing.defects.includes(cleanedRemark)) {
-                      existing.defects.push(cleanedRemark)
+              const cleaned = cleanDefectRemark(log.remarks);
+              if (cleaned !== "") {
+                  if (!existing.defects.includes(cleaned)) {
+                      existing.defects.push(cleaned)
                   }
               }
           }
@@ -819,9 +818,11 @@ export default function AdminDashboardPage() {
           
           const defectDesc = issue.description || issue.defect
           if (defectDesc && defectDesc.trim() !== "") {
-              const cleanedDefect = defectDesc.trim()
-              if (!existing.defects.includes(cleanedDefect)) {
-                  existing.defects.push(cleanedDefect)
+              const cleaned = cleanDefectRemark(defectDesc);
+              if (cleaned !== "") {
+                  if (!existing.defects.includes(cleaned)) {
+                      existing.defects.push(cleaned)
+                  }
               }
           }
           
