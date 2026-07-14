@@ -277,8 +277,11 @@ export default function SupplierDashboardPage() {
           if (log.remarks && log.remarks.trim() !== "") {
               const cleaned = cleanDefectRemark(log.remarks);
               if (cleaned !== "") {
-                  if (!existing.defects.includes(cleaned)) {
-                      existing.defects.push(cleaned)
+                  const parts = cleaned.split(",").map(s => s.trim()).filter(s => s !== "");
+                  for (const p of parts) {
+                      if (!existing.defects.includes(p)) {
+                          existing.defects.push(p)
+                      }
                   }
               }
           }
@@ -307,8 +310,11 @@ export default function SupplierDashboardPage() {
           if (defectDesc && defectDesc.trim() !== "") {
               const cleaned = cleanDefectRemark(defectDesc);
               if (cleaned !== "") {
-                  if (!existing.defects.includes(cleaned)) {
-                      existing.defects.push(cleaned)
+                  const parts = cleaned.split(",").map(s => s.trim()).filter(s => s !== "");
+                  for (const p of parts) {
+                      if (!existing.defects.includes(p)) {
+                          existing.defects.push(p)
+                      }
                   }
               }
           }
